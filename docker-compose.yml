@@ -1,0 +1,58 @@
+# Dùng khi tự host hạ tầng (production hoặc dev không muốn phụ thuộc cloud free-tier).
+# Hiện tại dev đang dùng Neon (Postgres) + Upstash (Redis) nên file này CHƯA cần chạy
+# ngay — giữ lại làm chuẩn production/self-host theo đúng kiến trúc đã duyệt ở Bước 2.
+# Cần Docker Desktop (Windows: bắt buộc WSL2) đã cài để chạy `docker compose up -d`.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: taga
+      POSTGRES_PASSWORD: taga_dev_password
+      POSTGRES_DB: taga_crm
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taga -d taga_crm"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: taga_minio
+      MINIO_ROOT_PASSWORD: taga_minio_password
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:

@@ -1,0 +1,732 @@
+// Schema chuẩn hoá theo Bước 3 (Database Design) trong plan đã duyệt.
+// Nguyên tắc: field nghiệp vụ đã biết trước = cột thật (có index/FK/constraint);
+// field người dùng tự thêm qua Grid UI = custom_fields JSONB + field_definitions.
+// GIN trigram index cho full-text search mờ (pg_trgm) được thêm bằng raw SQL
+// migration bổ sung sau lần `prisma migrate dev` đầu tiên — xem README.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgcrypto, pg_trgm]
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum Role {
+  ADMIN
+  HR_MANAGER
+  RECRUITER
+  INTERVIEWER
+  VIEWER
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum CandidateSource {
+  LANDING_PAGE
+  REFERRAL
+  HEADHUNTER
+  MANUAL
+  OTHER
+}
+
+enum LandingPageStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum SubmissionProcessingStatus {
+  PENDING
+  PROCESSED
+  DUPLICATE
+  ERROR
+}
+
+enum InterviewResult {
+  PENDING
+  PASSED
+  FAILED
+  RESCHEDULED
+  NO_SHOW
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+enum FieldType {
+  TEXT
+  LONG_TEXT
+  NUMBER
+  PHONE
+  EMAIL
+  DATE
+  DATETIME
+  CHECKBOX
+  SELECT
+  MULTI_SELECT
+  IMAGE
+  ATTACHMENT
+  LINK
+  FORMULA
+  LOOKUP
+  RELATION
+  ROLLUP
+  RATING
+  CURRENCY
+  PERCENT
+  CREATED_TIME
+  UPDATED_TIME
+  AUTO_NUMBER
+  USER
+}
+
+enum ViewType {
+  GRID
+  KANBAN
+  CALENDAR
+}
+
+enum EmailStatus {
+  QUEUED
+  SENT
+  FAILED
+  BOUNCED
+}
+
+enum AutomationTriggerType {
+  RECORD_CREATED
+  FIELD_CHANGED
+  SCHEDULED
+  WEBHOOK
+}
+
+enum AutomationNodeType {
+  IF
+  ELSE
+  SWITCH
+  DELAY
+  WAIT
+  WEBHOOK
+  EMAIL
+  SMS
+  TELEGRAM
+  SLACK
+  NOTIFICATION
+  GOOGLE_CALENDAR
+  GOOGLE_MEET
+  UPDATE_RECORD
+  CREATE_RECORD
+  DELETE_RECORD
+  CONDITION
+  LOOP
+  FUNCTION
+}
+
+enum AutomationRunStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+enum AdSpendChannel {
+  META
+  TIKTOK
+  GOOGLE
+}
+
+// ============================================================
+// AUTH / USERS
+// ============================================================
+
+model User {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  fullName     String    @map("full_name")
+  avatarUrl    String?   @map("avatar_url")
+  role         Role
+  phone        String?
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  refreshTokens         RefreshToken[]
+  candidatesAsRecruiter Candidate[]          @relation("CandidateRecruiter")
+  candidatesCreated     Candidate[]          @relation("CandidateCreatedBy")
+  candidatesUpdated     Candidate[]          @relation("CandidateUpdatedBy")
+  landingPagesCreated   LandingPage[]        @relation("LandingPageCreatedBy")
+  stageChanges          CandidateStageHistory[]
+  cvUploaded            CvAttachment[]
+  interviews            Interview[]          @relation("InterviewInterviewer")
+  comments              Comment[]
+  notifications         Notification[]
+  fieldDefinitions      FieldDefinition[]
+  views                 View[]
+  emailTemplates        EmailTemplate[]
+  automationWorkflows   AutomationWorkflow[]
+  adSpendEntries         AdSpend[]
+  googleOAuthToken      GoogleOAuthToken?
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tokenHash  String    @map("token_hash")
+  expiresAt  DateTime  @map("expires_at")
+  revokedAt  DateTime? @map("revoked_at")
+  userAgent  String?   @map("user_agent")
+  ip         String?
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("refresh_tokens")
+}
+
+// ============================================================
+// LANDING PAGE + FORM + INGESTION
+// ============================================================
+
+model LandingPage {
+  id          String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  slug        String            @unique
+  url         String
+  domain      String?
+  status      LandingPageStatus @default(DRAFT)
+  apiKeyHash  String            @map("api_key_hash")
+  description String?
+  trackingConfig Json           @default("{}") @map("tracking_config")
+  createdBy   String            @map("created_by") @db.Uuid
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  deletedAt   DateTime?         @map("deleted_at")
+
+  creator         User                      @relation("LandingPageCreatedBy", fields: [createdBy], references: [id])
+  forms           LandingPageForm[]
+  submissions     FormSubmission[]
+  candidates      Candidate[]
+  adSpendEntries  AdSpend[]
+  metricsDaily    LandingPageMetricDaily[]
+
+  @@index([status])
+  @@map("landing_pages")
+}
+
+model LandingPageForm {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  landingPageId String   @map("landing_page_id") @db.Uuid
+  version       Int
+  schema        Json
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  landingPage LandingPage      @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
+  submissions FormSubmission[]
+
+  @@unique([landingPageId, version])
+  @@map("landing_page_forms")
+}
+
+model FormSubmission {
+  id                String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  landingPageId     String                     @map("landing_page_id") @db.Uuid
+  formId            String?                    @map("form_id") @db.Uuid
+  rawPayload        Json                       @map("raw_payload")
+  ip                String?
+  userAgent         String?                    @map("user_agent")
+  device            String?
+  os                String?
+  browser           String?
+  referrer          String?
+  utmSource         String?                    @map("utm_source")
+  utmMedium         String?                    @map("utm_medium")
+  utmCampaign       String?                    @map("utm_campaign")
+  utmContent        String?                    @map("utm_content")
+  utmTerm           String?                    @map("utm_term")
+  fbc               String?
+  fbp               String?
+  ttclid            String?
+  submittedAt       DateTime                   @default(now()) @map("submitted_at")
+  candidateId       String?                    @map("candidate_id") @db.Uuid
+  processingStatus  SubmissionProcessingStatus @default(PENDING) @map("processing_status")
+  errorMessage      String?                    @map("error_message")
+
+  landingPage LandingPage      @relation(fields: [landingPageId], references: [id])
+  form        LandingPageForm? @relation(fields: [formId], references: [id])
+  candidate   Candidate?       @relation(fields: [candidateId], references: [id])
+
+  @@index([landingPageId, submittedAt])
+  @@index([processingStatus])
+  @@map("form_submissions")
+}
+
+// ============================================================
+// CANDIDATES + PIPELINE
+// ============================================================
+
+model Candidate {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fullName        String           @map("full_name")
+  phone           String?
+  email           String?
+  dob             DateTime?        @db.Date
+  gender          Gender?
+  address         String?
+  areaBranch      String?          @map("area_branch")
+  facebookLink    String?          @map("facebook_link")
+  photoUrl        String?          @map("photo_url")
+  source          CandidateSource  @default(LANDING_PAGE)
+  landingPageId   String?          @map("landing_page_id") @db.Uuid
+  recruiterId     String?          @map("recruiter_id") @db.Uuid
+  statusId        String           @map("status_id") @db.Uuid
+  nextActionNote  String?          @map("next_action_note")
+  note            String?
+  tags            String[]         @default([])
+
+  firstUtmSource   String? @map("first_utm_source")
+  firstUtmMedium   String? @map("first_utm_medium")
+  firstUtmCampaign String? @map("first_utm_campaign")
+  firstUtmContent  String? @map("first_utm_content")
+  firstUtmTerm     String? @map("first_utm_term")
+  firstIp          String? @map("first_ip")
+  firstDevice      String? @map("first_device")
+  firstOs          String? @map("first_os")
+  firstBrowser     String? @map("first_browser")
+  firstReferrer    String? @map("first_referrer")
+
+  customFields Json      @default("{}") @map("custom_fields")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  createdBy    String?   @map("created_by") @db.Uuid
+  updatedBy    String?   @map("updated_by") @db.Uuid
+  deletedAt    DateTime? @map("deleted_at")
+
+  landingPage    LandingPage?    @relation(fields: [landingPageId], references: [id])
+  recruiter      User?           @relation("CandidateRecruiter", fields: [recruiterId], references: [id])
+  status         PipelineStage   @relation(fields: [statusId], references: [id])
+  creator        User?           @relation("CandidateCreatedBy", fields: [createdBy], references: [id])
+  updater        User?           @relation("CandidateUpdatedBy", fields: [updatedBy], references: [id])
+
+  formSubmissions      FormSubmission[]
+  stageHistory         CandidateStageHistory[]
+  cvAttachments        CvAttachment[]
+  interviews           Interview[]
+  emailLogs            EmailLog[]
+
+  @@index([phone])
+  @@index([email])
+  @@index([recruiterId, statusId])
+  @@map("candidates")
+}
+
+model PipelineStage {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key        String   @unique
+  label      String
+  color      String
+  sortOrder  Int      @map("sort_order")
+  isTerminal Boolean  @default(false) @map("is_terminal")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  candidates       Candidate[]
+  historyFrom      CandidateStageHistory[] @relation("StageHistoryFrom")
+  historyTo        CandidateStageHistory[] @relation("StageHistoryTo")
+
+  @@map("pipeline_stages")
+}
+
+model CandidateStageHistory {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  candidateId String    @map("candidate_id") @db.Uuid
+  fromStageId String?   @map("from_stage_id") @db.Uuid
+  toStageId   String    @map("to_stage_id") @db.Uuid
+  changedBy   String?   @map("changed_by") @db.Uuid
+  changedAt   DateTime  @default(now()) @map("changed_at")
+  note        String?
+
+  candidate Candidate      @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  fromStage PipelineStage? @relation("StageHistoryFrom", fields: [fromStageId], references: [id])
+  toStage   PipelineStage  @relation("StageHistoryTo", fields: [toStageId], references: [id])
+  changedByUser User?      @relation(fields: [changedBy], references: [id])
+
+  @@index([candidateId])
+  @@map("candidate_stage_history")
+}
+
+model CvAttachment {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  candidateId String   @map("candidate_id") @db.Uuid
+  fileName    String   @map("file_name")
+  fileUrl     String   @map("file_url")
+  mimeType    String   @map("mime_type")
+  sizeBytes   Int      @map("size_bytes")
+  version     Int      @default(1)
+  uploadedBy  String?  @map("uploaded_by") @db.Uuid
+  uploadedAt  DateTime @default(now()) @map("uploaded_at")
+  isCurrent   Boolean  @default(true) @map("is_current")
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  uploader  User?     @relation(fields: [uploadedBy], references: [id])
+
+  @@index([candidateId])
+  @@map("cv_attachments")
+}
+
+model Interview {
+  id                    String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  candidateId           String          @map("candidate_id") @db.Uuid
+  round                 Int
+  scheduledDate         DateTime        @map("scheduled_date") @db.Date
+  scheduledTime         String          @map("scheduled_time")
+  interviewerId         String?         @map("interviewer_id") @db.Uuid
+  location              String?
+  googleMeetLink        String?         @map("google_meet_link")
+  googleCalendarEventId String?         @map("google_calendar_event_id")
+  note                  String?
+  result                InterviewResult @default(PENDING)
+  createdAt             DateTime        @default(now()) @map("created_at")
+  updatedAt             DateTime        @updatedAt @map("updated_at")
+
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  interviewer User?     @relation("InterviewInterviewer", fields: [interviewerId], references: [id])
+
+  @@index([candidateId])
+  @@index([interviewerId, scheduledDate])
+  @@map("interviews")
+}
+
+model GoogleOAuthToken {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String   @unique @map("user_id") @db.Uuid
+  accessToken  String   @map("access_token")
+  refreshToken String   @map("refresh_token")
+  expiresAt    DateTime @map("expires_at")
+  scope        String
+  googleEmail  String?  @map("google_email")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("google_oauth_tokens")
+}
+
+// ============================================================
+// COLLABORATION
+// ============================================================
+
+model Comment {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entityTable String    @map("entity_table")
+  entityId    String    @map("entity_id") @db.Uuid
+  authorId    String    @map("author_id") @db.Uuid
+  bodyText    String    @map("body_text")
+  mentions    String[]  @default([])
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  author User @relation(fields: [authorId], references: [id])
+
+  @@index([entityTable, entityId])
+  @@map("comments")
+}
+
+model Notification {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  type      String
+  title     String
+  body      String?
+  link      String?
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+// ============================================================
+// AUDIT LOG (không FK cứng — sống sót qua soft-delete)
+// ============================================================
+
+model AuditLog {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entityTable String      @map("entity_table")
+  entityId    String      @map("entity_id") @db.Uuid
+  action      AuditAction
+  fieldName   String?     @map("field_name")
+  oldValue    Json?       @map("old_value")
+  newValue    Json?       @map("new_value")
+  changedBy   String?     @map("changed_by") @db.Uuid
+  changedAt   DateTime    @default(now()) @map("changed_at")
+  ip          String?
+
+  @@index([entityTable, entityId])
+  @@index([changedBy])
+  @@map("audit_logs")
+}
+
+// ============================================================
+// DYNAMIC FIELD ENGINE (Airtable/Baserow-style)
+// ============================================================
+
+model FieldDefinition {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tableKey    String    @map("table_key")
+  fieldKey    String    @map("field_key")
+  label       String
+  fieldType   FieldType @map("field_type")
+  options     Json?     @default("{}")
+  sortOrder   Int       @map("sort_order")
+  width       Int       @default(160)
+  isFrozen    Boolean   @default(false) @map("is_frozen")
+  isHidden    Boolean   @default(false) @map("is_hidden")
+  isRequired  Boolean   @default(false) @map("is_required")
+  isSystem    Boolean   @default(false) @map("is_system")
+  createdBy   String?   @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  creator     User?         @relation(fields: [createdBy], references: [id])
+  recordLinks RecordLink[]
+
+  @@unique([tableKey, fieldKey])
+  @@index([tableKey])
+  @@map("field_definitions")
+}
+
+model RecordLink {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fieldId        String   @map("field_id") @db.Uuid
+  fromTableKey   String   @map("from_table_key")
+  fromRecordId   String   @map("from_record_id") @db.Uuid
+  toTableKey     String   @map("to_table_key")
+  toRecordId     String   @map("to_record_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  field FieldDefinition @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@index([fromTableKey, fromRecordId])
+  @@index([toTableKey, toRecordId])
+  @@map("record_links")
+}
+
+model View {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tableKey           String    @map("table_key")
+  name               String
+  type               ViewType  @default(GRID)
+  isDefault          Boolean   @default(false) @map("is_default")
+  ownerId            String?   @map("owner_id") @db.Uuid
+  filters            Json      @default("[]")
+  sorts              Json      @default("[]")
+  groupBy            Json?     @map("group_by")
+  hiddenFields       Json      @default("[]") @map("hidden_fields")
+  frozenFieldCount   Int       @default(1) @map("frozen_field_count")
+  rowHeight          String    @default("SHORT") @map("row_height")
+  colorRules         Json      @default("[]") @map("color_rules")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  owner User? @relation(fields: [ownerId], references: [id])
+
+  @@index([tableKey])
+  @@map("views")
+}
+
+// ============================================================
+// EMAIL
+// ============================================================
+
+model EmailTemplate {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String
+  subject      String
+  blocks       Json
+  thumbnailUrl String?  @map("thumbnail_url")
+  createdBy    String?  @map("created_by") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  creator User?      @relation(fields: [createdBy], references: [id])
+  logs    EmailLog[]
+
+  @@map("email_templates")
+}
+
+model EmailLog {
+  id                String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  templateId        String?     @map("template_id") @db.Uuid
+  toEmail           String      @map("to_email")
+  candidateId       String?     @map("candidate_id") @db.Uuid
+  subject           String
+  bodyHtml          String      @map("body_html")
+  status            EmailStatus @default(QUEUED)
+  providerMessageId  String?    @map("provider_message_id")
+  sentAt            DateTime?   @map("sent_at")
+  errorMessage      String?     @map("error_message")
+
+  template  EmailTemplate? @relation(fields: [templateId], references: [id])
+  candidate Candidate?     @relation(fields: [candidateId], references: [id])
+
+  @@index([candidateId])
+  @@map("email_logs")
+}
+
+// ============================================================
+// AUTOMATION (n8n-style node/edge graph)
+// ============================================================
+
+model AutomationWorkflow {
+  id            String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String
+  isActive      Boolean               @default(false) @map("is_active")
+  triggerType   AutomationTriggerType @map("trigger_type")
+  triggerConfig Json                  @default("{}") @map("trigger_config")
+  createdBy     String?               @map("created_by") @db.Uuid
+  createdAt     DateTime              @default(now()) @map("created_at")
+  updatedAt     DateTime              @updatedAt @map("updated_at")
+
+  creator User?              @relation(fields: [createdBy], references: [id])
+  nodes   AutomationNode[]
+  edges   AutomationEdge[]
+  runs    AutomationRun[]
+
+  @@map("automation_workflows")
+}
+
+model AutomationNode {
+  id         String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workflowId String             @map("workflow_id") @db.Uuid
+  nodeKey    String             @map("node_key")
+  type       AutomationNodeType
+  config     Json               @default("{}")
+  positionX  Float              @map("position_x")
+  positionY  Float              @map("position_y")
+  /** Node engine bắt đầu chạy — không dùng heuristic "không có cạnh vào" vì
+   * LOOP cần cạnh quay lại chính nó, làm mọi node trong graph đều "có cạnh vào". */
+  isEntry    Boolean            @default(false) @map("is_entry")
+
+  workflow AutomationWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@unique([workflowId, nodeKey])
+  @@map("automation_nodes")
+}
+
+model AutomationEdge {
+  id              String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workflowId      String  @map("workflow_id") @db.Uuid
+  fromNodeKey     String  @map("from_node_key")
+  toNodeKey       String  @map("to_node_key")
+  conditionLabel  String? @map("condition_label")
+
+  workflow AutomationWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@index([workflowId])
+  @@map("automation_edges")
+}
+
+model AutomationRun {
+  id                 String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workflowId         String              @map("workflow_id") @db.Uuid
+  triggerRecordTable String?             @map("trigger_record_table")
+  triggerRecordId    String?             @map("trigger_record_id") @db.Uuid
+  status             AutomationRunStatus @default(RUNNING)
+  startedAt          DateTime            @default(now()) @map("started_at")
+  finishedAt         DateTime?           @map("finished_at")
+  errorMessage       String?             @map("error_message")
+
+  workflow AutomationWorkflow  @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  logs     AutomationRunLog[]
+
+  @@index([workflowId, status])
+  @@map("automation_runs")
+}
+
+model AutomationRunLog {
+  id         String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  runId      String              @map("run_id") @db.Uuid
+  nodeKey    String              @map("node_key")
+  status     AutomationRunStatus @default(RUNNING)
+  input      Json?
+  output     Json?
+  startedAt  DateTime            @default(now()) @map("started_at")
+  finishedAt DateTime?           @map("finished_at")
+  errorMessage String?           @map("error_message")
+
+  run AutomationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+  @@map("automation_run_logs")
+}
+
+// ============================================================
+// REPORTING / ANALYTICS ROLLUP
+// ============================================================
+
+model AdSpend {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  landingPageId String?        @map("landing_page_id") @db.Uuid
+  channel       AdSpendChannel
+  date          DateTime       @db.Date
+  amount        Decimal        @db.Decimal(14, 2)
+  currency      String         @default("VND")
+  source        String         @default("MANUAL")
+  createdBy     String?        @map("created_by") @db.Uuid
+  createdAt     DateTime       @default(now()) @map("created_at")
+
+  landingPage LandingPage? @relation(fields: [landingPageId], references: [id])
+  creator     User?        @relation(fields: [createdBy], references: [id])
+
+  @@index([landingPageId, date])
+  @@map("ad_spend")
+}
+
+model LandingPageMetricDaily {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  landingPageId    String   @map("landing_page_id") @db.Uuid
+  date             DateTime @db.Date
+  visitors         Int      @default(0)
+  sessions         Int      @default(0)
+  pageViews        Int      @default(0) @map("page_views")
+  formViews        Int      @default(0) @map("form_views")
+  formSubmits      Int      @default(0) @map("form_submits")
+  conversionRate   Decimal  @default(0) @map("conversion_rate") @db.Decimal(6, 4)
+  bounceRate       Decimal  @default(0) @map("bounce_rate") @db.Decimal(6, 4)
+  avgTimeSeconds   Int      @default(0) @map("avg_time_seconds")
+  cost             Decimal  @default(0) @db.Decimal(14, 2)
+  costPerForm      Decimal  @default(0) @map("cost_per_form") @db.Decimal(14, 2)
+  costPerHire      Decimal  @default(0) @map("cost_per_hire") @db.Decimal(14, 2)
+  source           String   @default("GA4")
+
+  landingPage LandingPage @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
+
+  @@unique([landingPageId, date])
+  @@map("landing_page_metrics_daily")
+}

@@ -1,0 +1,25 @@
+{
+  "name": "@taga-crm/worker",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "echo \"(worker) no lint configured yet\""
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "@taga-crm/shared": "workspace:*",
+    "bullmq": "^5.34.2",
+    "ioredis": "5.10.1",
+    "mjml": "^5.3.0"
+  },
+  "devDependencies": {
+    "@types/mjml": "^5.0.0",
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+env:
+  # Giá trị giả chỉ để prisma generate/typecheck chạy được trong CI — không kết nối DB thật.
+  DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci"
+  REDIS_URL: "redis://localhost:6379"
+  JWT_ACCESS_SECRET: "ci-access-secret-please-replace-1234567890"
+  JWT_REFRESH_SECRET: "ci-refresh-secret-please-replace-1234567890"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prisma generate
+        run: pnpm --filter @taga-crm/api exec prisma generate
+
+      - name: Build (turbo, theo dependency graph)
+        run: pnpm build
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
