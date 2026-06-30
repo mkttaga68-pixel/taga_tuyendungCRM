@@ -34,7 +34,7 @@ async function bootstrap() {
   app.useBodyParser("json", { limit: "10mb" });
   app.useBodyParser("urlencoded", { limit: "10mb", extended: true });
 
-  const port = configService.get<number>("API_PORT") ?? 4000;
+  const port = process.env.PORT ?? configService.get<string>("API_PORT") ?? "4000";
   await app.listen(port);
   console.log(`API đang chạy tại http://localhost:${port}`);
 }
