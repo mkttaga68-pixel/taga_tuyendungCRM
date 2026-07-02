@@ -7,6 +7,15 @@ import cookieParser from "cookie-parser";
 import type { Request } from "express";
 import { AppModule } from "./app.module";
 
+process.on("uncaughtException", (err) => {
+  console.error("[CRASH] uncaughtException:", err.stack || err.message);
+  process.exit(1);
+});
+process.on("unhandledRejection", (reason) => {
+  console.error("[CRASH] unhandledRejection:", reason);
+  process.exit(1);
+});
+
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const configService = app.get(ConfigService);
