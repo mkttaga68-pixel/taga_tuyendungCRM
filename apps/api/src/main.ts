@@ -46,6 +46,17 @@ async function bootstrap() {
   const port = process.env.PORT ?? configService.get<string>("API_PORT") ?? "4000";
   await app.listen(port, "0.0.0.0");
   console.log(`API đang chạy tại http://0.0.0.0:${port}`);
+
+  // Log memory every 5s for the first 2 minutes so we can see RSS before any OOM kill
+  let ticks = 0;
+  const memTimer = setInterval(() => {
+    const m = process.memoryUsage();
+    const mb = (n: number) => Math.round(n / 1024 / 1024);
+    console.log(
+      `[MEM] rss=${mb(m.rss)}MB heap=${mb(m.heapUsed)}/${mb(m.heapTotal)}MB ext=${mb(m.external)}MB`,
+    );
+    if (++ticks >= 24) clearInterval(memTimer);
+  }, 5000);
 }
 
 void bootstrap();
