@@ -95,6 +95,7 @@ export function CandidatesGrid() {
   const addRecordInputRef = useRef<HTMLInputElement>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingInsertRef = useRef<{ fieldId: string; side: "left" | "right" } | null>(null);
+  const pendingSubmitRef = useRef(false);
   const [addColumnOpen, setAddColumnOpen] = useState(false);
   const currentUser = useAuthStore((s) => s.user);
   const canManageShared = currentUser?.role === "ADMIN" || currentUser?.role === "HR_MANAGER";
@@ -801,11 +802,17 @@ export function CandidatesGrid() {
           onInsertLeft={(fieldId) => handleInsertField(fieldId, "left")}
           onInsertRight={(fieldId) => handleInsertField(fieldId, "right")}
           onResizeEnd={(fieldId, width) => updateFieldMutation.mutate({ id: fieldId, input: { width } })}
-          onCreateField={(input) => createFieldMutation.mutate(input)}
+          onCreateField={(input) => {
+            pendingSubmitRef.current = true;
+            createFieldMutation.mutate(input);
+          }}
           addColumnOpen={addColumnOpen}
           onAddColumnOpenChange={(v) => {
             setAddColumnOpen(v);
-            if (!v) pendingInsertRef.current = null;
+            if (!v) {
+              if (!pendingSubmitRef.current) pendingInsertRef.current = null;
+              pendingSubmitRef.current = false;
+            }
           }}
         />
 
