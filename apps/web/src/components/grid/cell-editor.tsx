@@ -34,6 +34,14 @@ function computeInitialText(field: FieldDefinitionDto, value: unknown): string {
   return String(value);
 }
 
+// stopPropagation prevents the mousedown from bubbling through the React tree to the
+// grid cell's onMouseDown handler (which calls setActiveCell → editingCell:null),
+// which would unmount CellEditor before the subsequent click event fires.
+function stopMouseDown(e: React.MouseEvent) {
+  e.preventDefault();
+  e.stopPropagation();
+}
+
 function MultiSelectEditor({
   choices,
   initialSelected,
@@ -60,7 +68,7 @@ function MultiSelectEditor({
           )}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-48 p-1" align="start">
+      <PopoverContent className="w-48 p-1" align="start" onMouseDown={stopMouseDown}>
         {choices.map((choice) => {
           const isChecked = picked.includes(choice.value);
           return (
@@ -133,7 +141,7 @@ export function CellEditor({
             <button
               key={stage.id}
               type="button"
-              onMouseDown={(e) => e.preventDefault()}
+              onMouseDown={stopMouseDown}
               onClick={() => onCommit(stage.id)}
               className="flex w-full items-center rounded px-2 py-1.5 text-sm hover:bg-muted/60"
             >
@@ -162,7 +170,7 @@ export function CellEditor({
         >
           <button
             type="button"
-            onMouseDown={(e) => e.preventDefault()}
+            onMouseDown={stopMouseDown}
             onClick={() => onCommit(null)}
             className="flex w-full items-center rounded px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted/60"
           >
@@ -172,7 +180,7 @@ export function CellEditor({
             <button
               key={u.id}
               type="button"
-              onMouseDown={(e) => e.preventDefault()}
+              onMouseDown={stopMouseDown}
               onClick={() => onCommit(u.id)}
               className="flex w-full items-center rounded px-2 py-1.5 text-sm hover:bg-muted/60"
             >
@@ -216,7 +224,7 @@ export function CellEditor({
             <button
               key={choice.value}
               type="button"
-              onMouseDown={(e) => e.preventDefault()}
+              onMouseDown={stopMouseDown}
               onClick={() => onCommit(choice.value)}
               className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted/60"
             >
@@ -248,6 +256,7 @@ export function CellEditor({
         <PopoverContent
           className="w-auto p-0"
           align="start"
+          onMouseDown={stopMouseDown}
           onInteractOutside={(e) => { e.preventDefault(); onCancel(); }}
           onEscapeKeyDown={onCancel}
         >
