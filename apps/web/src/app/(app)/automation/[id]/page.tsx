@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { getWorkflow, updateWorkflow } from "@/lib/automation-api";
 import { listCustomTables } from "@/lib/custom-tables-api";
+import { getUiSettings } from "@/lib/settings-api";
 import { ApiError } from "@/lib/api-client";
 import { AutomationCanvas } from "./automation-canvas";
 import { RunHistoryTab } from "./run-history-tab";
@@ -30,6 +31,8 @@ export default function AutomationDetailPage({ params }: { params: Promise<{ id:
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ["automation-workflows", id], queryFn: () => getWorkflow(id) });
   const tablesQuery = useQuery({ queryKey: ["custom-tables"], queryFn: listCustomTables, staleTime: 30_000 });
+  const uiSettingsQuery = useQuery({ queryKey: ["ui-settings"], queryFn: getUiSettings, staleTime: 60_000 });
+  const candidatesTableName = uiSettingsQuery.data?.candidatesTableName ?? "Ứng viên";
   const [selectedTableKey, setSelectedTableKey] = useState<string | null>(null);
 
   const updateTriggerMutation = useMutation({
@@ -53,7 +56,7 @@ export default function AutomationDetailPage({ params }: { params: Promise<{ id:
   const tables = tablesQuery.data ?? [];
   const triggerTableLabel =
     triggerTableKey === "candidates"
-      ? "Ứng viên"
+      ? candidatesTableName
       : (tables.find((t) => t.tableKey === triggerTableKey)?.name ?? triggerTableKey);
 
   const showTableConfig = TABLE_TRIGGER_TYPES.has(workflow.triggerType);
@@ -94,7 +97,7 @@ export default function AutomationDetailPage({ params }: { params: Promise<{ id:
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="candidates">Ứng viên (mặc định)</SelectItem>
+                  <SelectItem value="candidates">{candidatesTableName} (mặc định)</SelectItem>
                   {tables.map((t) => (
                     <SelectItem key={t.tableKey} value={t.tableKey}>
                       {t.name}

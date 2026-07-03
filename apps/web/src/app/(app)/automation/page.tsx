@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/table";
 import { createWorkflow, listWorkflows, updateWorkflow } from "@/lib/automation-api";
 import { listCustomTables } from "@/lib/custom-tables-api";
+import { getUiSettings } from "@/lib/settings-api";
 import { ApiError } from "@/lib/api-client";
 
 const RUN_STATUS_BADGE_VARIANT: Record<AutomationRunStatus, "default" | "secondary" | "destructive"> = {
@@ -63,6 +64,8 @@ export default function AutomationPage() {
 
   const query = useQuery({ queryKey: ["automation-workflows"], queryFn: listWorkflows });
   const tablesQuery = useQuery({ queryKey: ["custom-tables"], queryFn: listCustomTables, staleTime: 30_000 });
+  const uiSettingsQuery = useQuery({ queryKey: ["ui-settings"], queryFn: getUiSettings, staleTime: 60_000 });
+  const candidatesTableName = uiSettingsQuery.data?.candidatesTableName ?? "Ứng viên";
 
   const form = useForm<CreateWorkflowInput>({
     resolver: zodResolver(createWorkflowSchema),
@@ -157,7 +160,7 @@ export default function AutomationPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="candidates">Ứng viên (mặc định)</SelectItem>
+                      <SelectItem value="candidates">{candidatesTableName} (mặc định)</SelectItem>
                       {(tablesQuery.data ?? []).map((t) => (
                         <SelectItem key={t.tableKey} value={t.tableKey}>
                           {t.name}
