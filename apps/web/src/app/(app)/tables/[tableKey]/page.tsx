@@ -3,12 +3,24 @@
 import { use, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Trash2, Check, X } from "lucide-react";
+import { ChevronDown, Plus, Trash2, Check, X } from "lucide-react";
 import { type CREATABLE_CUSTOM_FIELD_TYPES, type FieldDefinitionDto } from "@taga-crm/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { AddColumnPopover } from "@/components/grid/add-column-popover";
-import { listFieldDefinitions, createFieldDefinition } from "@/lib/field-definitions-api";
+import {
+  listFieldDefinitions,
+  createFieldDefinition,
+  updateFieldDefinition,
+  deleteFieldDefinition,
+} from "@/lib/field-definitions-api";
 import {
   listCustomRecords,
   createCustomRecord,
@@ -83,6 +95,45 @@ function CustomTableGrid({ tableKey }: { tableKey: string }) {
     },
   });
 
+  const [renamingFieldId, setRenamingFieldId] = useState<string | null>(null);
+  const [renamingFieldValue, setRenamingFieldValue] = useState("");
+
+  const updateFieldMutation = useMutation({
+    mutationFn: ({ id, label }: { id: string; label: string }) =>
+      updateFieldDefinition(id, { label }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["field-definitions", tableKey] });
+      setRenamingFieldId(null);
+      toast.success("Đã đổi tên trường");
+    },
+    onError: (err) => {
+      toast.error(err instanceof ApiError ? err.message : "Không thể đổi tên");
+    },
+  });
+
+  const deleteFieldMutation = useMutation({
+    mutationFn: (id: string) => deleteFieldDefinition(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["field-definitions", tableKey] });
+      toast.success("Đã xoá trường");
+    },
+    onError: (err) => {
+      toast.error(err instanceof ApiError ? err.message : "Không thể xoá trường");
+    },
+  });
+
+  function startRenameField(field: FieldDefinitionDto) {
+    setRenamingFieldId(field.id);
+    setRenamingFieldValue(field.label);
+  }
+
+  function commitRenameField(field: FieldDefinitionDto) {
+    const trimmed = renamingFieldValue.trim();
+    if (!trimmed) { setRenamingFieldId(null); return; }
+    if (trimmed !== field.label) updateFieldMutation.mutate({ id: field.id, label: trimmed });
+    else setRenamingFieldId(null);
+  }
+
   type CreatableType = (typeof CREATABLE_CUSTOM_FIELD_TYPES)[number];
   const addFieldMutation = useMutation({
     mutationFn: (input: {
@@ -144,10 +195,54 @@ function CustomTableGrid({ tableKey }: { tableKey: string }) {
               {fields.map((f) => (
                 <th
                   key={f.id}
-                  className="border-b border-r px-3 py-2 text-left text-xs font-medium text-muted-foreground"
+                  className="group/th border-b border-r px-0 py-0 text-left text-xs font-medium text-muted-foreground"
                   style={{ minWidth: f.width || 140 }}
                 >
-                  {f.label}
+                  <div className="relative flex h-8 items-center gap-1 px-3">
+                    {renamingFieldId === f.id ? (
+                      <Input
+                        autoFocus
+                        className="h-6 py-0 text-xs"
+                        value={renamingFieldValue}
+                        onChange={(e) => setRenamingFieldValue(e.target.value)}
+                        onBlur={() => commitRenameField(f)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") commitRenameField(f);
+                          if (e.key === "Escape") setRenamingFieldId(null);
+                        }}
+                      />
+                    ) : (
+                      <span className="flex-1 truncate">{f.label}</span>
+                    )}
+                    {renamingFieldId !== f.id && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="rounded p-0.5 opacity-0 group-hover/th:opacity-100 hover:bg-accent">
+                            <ChevronDown className="size-3.5" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                          <DropdownMenuItem onClick={() => startRenameField(f)}>
+                            Đổi tên trường
+                          </DropdownMenuItem>
+                          {!f.isSystem && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                variant="destructive"
+                                onClick={() => {
+                                  if (confirm(`Xoá trường "${f.label}"? Dữ liệu trong trường sẽ mất.`))
+                                    deleteFieldMutation.mutate(f.id);
+                                }}
+                              >
+                                Xoá trường
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </div>
                 </th>
               ))}
               <th className="border-b px-2 py-2">
