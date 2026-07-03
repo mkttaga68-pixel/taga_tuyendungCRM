@@ -1,7 +1,33 @@
 "use client";
 
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import {
+  AlignLeft,
+  AlignJustify,
+  Hash,
+  Phone,
+  Mail,
+  Calendar,
+  CalendarClock,
+  CheckSquare,
+  ChevronDown,
+  ListChecks,
+  Image,
+  Paperclip,
+  Link,
+  Calculator,
+  Search,
+  GitBranch,
+  BarChart2,
+  Star,
+  DollarSign,
+  Percent,
+  Clock,
+  RefreshCw,
+  ListOrdered,
+  User,
+  Plus,
+} from "lucide-react";
 import {
   COMPUTED_FIELD_TYPES,
   CREATABLE_CUSTOM_FIELD_TYPES,
@@ -35,6 +61,56 @@ interface AddColumnPopoverProps {
   }) => void;
 }
 
+type LucideIcon = React.ComponentType<{ className?: string }>;
+
+const FIELD_TYPE_ICON: Record<string, LucideIcon> = {
+  TEXT: AlignLeft,
+  LONG_TEXT: AlignJustify,
+  NUMBER: Hash,
+  PHONE: Phone,
+  EMAIL: Mail,
+  DATE: Calendar,
+  DATETIME: CalendarClock,
+  CHECKBOX: CheckSquare,
+  SELECT: ChevronDown,
+  MULTI_SELECT: ListChecks,
+  IMAGE: Image,
+  ATTACHMENT: Paperclip,
+  LINK: Link,
+  FORMULA: Calculator,
+  LOOKUP: Search,
+  RELATION: GitBranch,
+  ROLLUP: BarChart2,
+  RATING: Star,
+  CURRENCY: DollarSign,
+  PERCENT: Percent,
+  CREATED_TIME: Clock,
+  UPDATED_TIME: RefreshCw,
+  AUTO_NUMBER: ListOrdered,
+  USER: User,
+};
+
+type FieldGroup = { label: string; types: CreatableType[] };
+
+const FIELD_GROUPS: FieldGroup[] = [
+  {
+    label: "Cơ bản",
+    types: ["TEXT", "LONG_TEXT", "NUMBER", "DATE", "DATETIME", "CHECKBOX", "SELECT", "MULTI_SELECT"],
+  },
+  {
+    label: "Liên hệ & Media",
+    types: ["PHONE", "EMAIL", "LINK", "USER"],
+  },
+  {
+    label: "Nâng cao",
+    types: ["CURRENCY", "PERCENT", "RATING"],
+  },
+  {
+    label: "Tính toán",
+    types: ["FORMULA", "RELATION", "LOOKUP", "ROLLUP"],
+  },
+];
+
 function toFieldKey(label: string): string {
   const ascii = label
     .normalize("NFD")
@@ -49,6 +125,7 @@ function toFieldKey(label: string): string {
 
 export function AddColumnPopover({ existingFields, onCreate }: AddColumnPopoverProps) {
   const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<"pick" | "config">("pick");
   const [label, setLabel] = useState("");
   const [fieldType, setFieldType] = useState<CreatableType>("TEXT");
   const [relationFieldKey, setRelationFieldKey] = useState("");
@@ -58,7 +135,6 @@ export function AddColumnPopover({ existingFields, onCreate }: AddColumnPopoverP
 
   const relationFields = existingFields.filter((f) => f.fieldType === "RELATION");
   const lookupableFields = existingFields.filter((f) => !COMPUTED_FIELD_TYPES.has(f.fieldType));
-  const formulaRefFields = existingFields.filter((f) => !COMPUTED_FIELD_TYPES.has(f.fieldType));
 
   function reset() {
     setLabel("");
@@ -67,6 +143,12 @@ export function AddColumnPopover({ existingFields, onCreate }: AddColumnPopoverP
     setTargetFieldKey("");
     setAggregation("SUM");
     setExpression("");
+    setStep("pick");
+  }
+
+  function pickType(type: CreatableType) {
+    setFieldType(type);
+    setStep("config");
   }
 
   function handleSubmit() {
@@ -97,124 +179,162 @@ export function AddColumnPopover({ existingFields, onCreate }: AddColumnPopoverP
     (fieldType !== "LOOKUP" && fieldType !== "ROLLUP" ? true : !!relationFieldKey && !!targetFieldKey) &&
     (fieldType !== "FORMULA" || !!expression.trim());
 
+  const SelectedIcon = FIELD_TYPE_ICON[fieldType] ?? AlignLeft;
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
       <PopoverTrigger asChild>
         <button className="flex h-8 w-10 shrink-0 items-center justify-center border-b text-muted-foreground hover:bg-muted/60">
           <Plus className="size-4" />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-80 space-y-3">
-        <div className="space-y-1.5">
-          <Label htmlFor="new-field-label">Tên trường</Label>
-          <Input
-            id="new-field-label"
-            autoFocus
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && canSubmit && handleSubmit()}
-            placeholder="VD: Mức lương mong muốn"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Kiểu dữ liệu</Label>
-          <Select value={fieldType} onValueChange={(v) => setFieldType(v as CreatableType)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {CREATABLE_CUSTOM_FIELD_TYPES.map((type) => (
-                <SelectItem key={type} value={type}>
-                  {FIELD_TYPE_LABELS[type]}
-                </SelectItem>
+
+      <PopoverContent align="start" className="w-72 p-0 overflow-hidden">
+        {step === "pick" ? (
+          /* ── Bước 1: chọn kiểu trường ── */
+          <div>
+            <div className="px-3 pt-3 pb-2 border-b">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Chọn kiểu dữ liệu
+              </p>
+            </div>
+            <div className="max-h-80 overflow-y-auto py-1">
+              {FIELD_GROUPS.map((group) => (
+                <div key={group.label}>
+                  <p className="px-3 pt-2 pb-0.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    {group.label}
+                  </p>
+                  {group.types.map((type) => {
+                    const Icon = FIELD_TYPE_ICON[type] ?? AlignLeft;
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        className="flex w-full items-center gap-2.5 px-3 py-1.5 text-sm hover:bg-muted/60 transition-colors"
+                        onClick={() => pickType(type)}
+                      >
+                        <Icon className="size-4 shrink-0 text-muted-foreground" />
+                        <span>{FIELD_TYPE_LABELS[type]}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {fieldType === "RELATION" && (
-          <p className="text-xs text-muted-foreground">
-            Liên kết tới ứng viên khác (cùng bảng Ứng viên) — sửa liên kết bằng cách bấm vào ô.
-          </p>
-        )}
-
-        {(fieldType === "LOOKUP" || fieldType === "ROLLUP") && (
-          <>
-            <div className="space-y-1.5">
-              <Label>Field Relation dùng để đi tới</Label>
-              <Select value={relationFieldKey} onValueChange={setRelationFieldKey}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn field Relation" />
-                </SelectTrigger>
-                <SelectContent>
-                  {relationFields.map((f) => (
-                    <SelectItem key={f.fieldKey} value={f.fieldKey}>
-                      {f.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {relationFields.length === 0 && (
-                <p className="text-xs text-amber-600">Cần tạo 1 field kiểu Relation trước.</p>
-              )}
             </div>
-            <div className="space-y-1.5">
-              <Label>Field muốn hiển thị (trên ứng viên được liên kết)</Label>
-              <Select value={targetFieldKey} onValueChange={setTargetFieldKey}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn field" />
-                </SelectTrigger>
-                <SelectContent>
-                  {lookupableFields.map((f) => (
-                    <SelectItem key={f.fieldKey} value={f.fieldKey}>
-                      {f.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </>
-        )}
+          </div>
+        ) : (
+          /* ── Bước 2: nhập tên & config ── */
+          <div className="p-3 space-y-3">
+            <button
+              type="button"
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => setStep("pick")}
+            >
+              ← Đổi kiểu
+            </button>
 
-        {fieldType === "ROLLUP" && (
-          <div className="space-y-1.5">
-            <Label>Cách tổng hợp</Label>
-            <Select value={aggregation} onValueChange={(v) => setAggregation(v as RollupAggregation)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ROLLUP_AGGREGATIONS.map((a) => (
-                  <SelectItem key={a} value={a}>
-                    {a}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* Kiểu đã chọn */}
+            <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-2 py-1.5">
+              <SelectedIcon className="size-4 text-muted-foreground" />
+              <span className="text-sm font-medium">{FIELD_TYPE_LABELS[fieldType]}</span>
+            </div>
+
+            {/* Tên trường */}
+            <div className="space-y-1.5">
+              <Label htmlFor="new-field-label">Tên trường</Label>
+              <Input
+                id="new-field-label"
+                autoFocus
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && canSubmit && handleSubmit()}
+                placeholder={`VD: ${FIELD_TYPE_LABELS[fieldType]}`}
+              />
+            </div>
+
+            {/* Config nâng cao theo từng type */}
+            {fieldType === "RELATION" && (
+              <p className="text-xs text-muted-foreground">
+                Liên kết tới bản ghi trong bảng khác — sửa liên kết bằng cách bấm vào ô.
+              </p>
+            )}
+
+            {(fieldType === "LOOKUP" || fieldType === "ROLLUP") && (
+              <>
+                <div className="space-y-1.5">
+                  <Label>Field Relation dùng để đi tới</Label>
+                  <Select value={relationFieldKey} onValueChange={setRelationFieldKey}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Chọn field Relation" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {relationFields.map((f) => (
+                        <SelectItem key={f.fieldKey} value={f.fieldKey}>
+                          {f.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {relationFields.length === 0 && (
+                    <p className="text-xs text-amber-600">Cần tạo 1 field kiểu "Liên kết bảng" trước.</p>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Field muốn tra cứu</Label>
+                  <Select value={targetFieldKey} onValueChange={setTargetFieldKey}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Chọn field" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {lookupableFields.map((f) => (
+                        <SelectItem key={f.fieldKey} value={f.fieldKey}>
+                          {f.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
+
+            {fieldType === "ROLLUP" && (
+              <div className="space-y-1.5">
+                <Label>Cách tổng hợp</Label>
+                <Select value={aggregation} onValueChange={(v) => setAggregation(v as RollupAggregation)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ROLLUP_AGGREGATIONS.map((a) => (
+                      <SelectItem key={a} value={a}>{a}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {fieldType === "FORMULA" && (
+              <div className="space-y-1.5">
+                <Label>Công thức</Label>
+                <Textarea
+                  rows={3}
+                  value={expression}
+                  onChange={(e) => setExpression(e.target.value)}
+                  placeholder="VD: ROUND({{salary}} * 12, 0)"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {lookupableFields.length > 0
+                    ? `Field dùng được: ${lookupableFields.map((f) => `{{${f.fieldKey}}}`).join(", ")}`
+                    : "Chưa có field nào để tham chiếu."}
+                </p>
+              </div>
+            )}
+
+            <Button className="w-full" size="sm" onClick={handleSubmit} disabled={!canSubmit}>
+              Thêm trường
+            </Button>
           </div>
         )}
-
-        {fieldType === "FORMULA" && (
-          <div className="space-y-1.5">
-            <Label>Công thức</Label>
-            <Textarea
-              rows={3}
-              value={expression}
-              onChange={(e) => setExpression(e.target.value)}
-              placeholder="VD: ROUND({{salary}} * 12, 0)"
-            />
-            <p className="text-xs text-muted-foreground">
-              Field có thể dùng:{" "}
-              {formulaRefFields.length > 0
-                ? formulaRefFields.map((f) => `{{${f.fieldKey}}}`).join(", ")
-                : "(chưa có field nào khác)"}
-            </p>
-          </div>
-        )}
-
-        <Button className="w-full" size="sm" onClick={handleSubmit} disabled={!canSubmit}>
-          Thêm trường
-        </Button>
       </PopoverContent>
     </Popover>
   );
