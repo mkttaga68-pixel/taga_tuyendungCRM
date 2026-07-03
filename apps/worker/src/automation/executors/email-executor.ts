@@ -3,12 +3,18 @@ import { fetchCandidateContext } from "../candidate-context";
 import { renderEmailTemplateToHtml } from "../mjml-renderer";
 import type { NodeExecutor } from "../types";
 
-/**
- * Gửi email qua Resend (https://resend.com) — API đơn giản, chỉ cần 1 HTTP
- * POST, không cần SDK riêng. Cần RESEND_API_KEY + EMAIL_FROM_ADDRESS trong
- * .env (toàn hệ thống dùng chung 1 domain gửi, khác với Telegram/Slack —
- * mỗi automation gửi từ chatbot/webhook riêng nên nằm trong config node).
- */
+async function getResendConfig(prisma: Parameters<NodeExecutor>[0]["prisma"]) {
+  const rows = await prisma.systemSetting.findMany({
+    where: { key: { in: ["resend.apiKey", "resend.fromEmail", "resend.fromName"] } },
+  });
+  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  return {
+    apiKey: map["resend.apiKey"] ?? null,
+    fromEmail: map["resend.fromEmail"] ?? null,
+    fromName: map["resend.fromName"] ?? null,
+  };
+}
+
 export const emailExecutor: NodeExecutor = async ({
   node,
   prisma,
@@ -22,8 +28,14 @@ export const emailExecutor: NodeExecutor = async ({
     );
   }
   const config = emailConfigSchema.parse(rawConfig);
-  const apiKey = process.env.RESEND_API_KEY;
-  const fromAddress = process.env.EMAIL_FROM_ADDRESS;
+
+  const resendCfg = await getResendConfig(prisma);
+  const apiKey = resendCfg.apiKey;
+  const fromAddress = resendCfg.fromEmail
+    ? resendCfg.fromName
+      ? `${resendCfg.fromName} <${resendCfg.fromEmail}>`
+      : resendCfg.fromEmail
+    : null;
 
   const candidate = await fetchCandidateContext(prisma, triggerRecordId);
   const data = { candidate, vars: execVars.vars, loopItem: execVars.vars.loopItem };
@@ -61,17 +73,20 @@ export const emailExecutor: NodeExecutor = async ({
         subject,
         bodyHtml: html,
         status: "FAILED",
-        errorMessage: "RESEND_API_KEY/EMAIL_FROM_ADDRESS chưa được cấu hình trong .env",
+        errorMessage: "Chưa cấu hình Resend. Vào Cài đặt → Kết nối Email để thêm API key và địa chỉ gửi.",
       },
     });
-    throw new Error("RESEND_API_KEY/EMAIL_FROM_ADDRESS chưa được cấu hình — không gửi được email");
+    throw new Error("Resend chưa được cấu hình — vào Cài đặt → Kết nối Email");
   }
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({ from: fromAddress, to, subject, html }),
-  });
+    signal: controller.signal,
+  }).finally(() => clearTimeout(timeout));
   const body = (await response.json().catch(() => null)) as { id?: string; message?: string } | null;
 
   await prisma.emailLog.create({
