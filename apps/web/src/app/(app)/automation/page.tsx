@@ -44,6 +44,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { createWorkflow, listWorkflows, updateWorkflow } from "@/lib/automation-api";
+import { listCustomTables } from "@/lib/custom-tables-api";
 import { ApiError } from "@/lib/api-client";
 
 const RUN_STATUS_BADGE_VARIANT: Record<AutomationRunStatus, "default" | "secondary" | "destructive"> = {
@@ -52,24 +53,37 @@ const RUN_STATUS_BADGE_VARIANT: Record<AutomationRunStatus, "default" | "seconda
   FAILED: "destructive",
 };
 
+const TABLE_TRIGGER_TYPES = new Set(["RECORD_CREATED", "FIELD_CHANGED"]);
+
 export default function AutomationPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [selectedTableKey, setSelectedTableKey] = useState("candidates");
 
   const query = useQuery({ queryKey: ["automation-workflows"], queryFn: listWorkflows });
+  const tablesQuery = useQuery({ queryKey: ["custom-tables"], queryFn: listCustomTables, staleTime: 30_000 });
 
   const form = useForm<CreateWorkflowInput>({
     resolver: zodResolver(createWorkflowSchema),
     defaultValues: { name: "", triggerType: "RECORD_CREATED" },
   });
 
+  const watchedTrigger = form.watch("triggerType");
+
   const createMutation = useMutation({
-    mutationFn: createWorkflow,
+    mutationFn: (values: CreateWorkflowInput) =>
+      createWorkflow({
+        ...values,
+        triggerConfig: TABLE_TRIGGER_TYPES.has(values.triggerType)
+          ? { tableKey: selectedTableKey }
+          : {},
+      }),
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ["automation-workflows"] });
       setOpen(false);
       form.reset();
+      setSelectedTableKey("candidates");
       toast.success(`Đã tạo workflow "${created.name}"`);
       router.push(`/automation/${created.id}`);
     },
@@ -135,6 +149,24 @@ export default function AutomationPage() {
                   </SelectContent>
                 </Select>
               </div>
+              {TABLE_TRIGGER_TYPES.has(watchedTrigger) && (
+                <div className="space-y-2">
+                  <Label>Bảng áp dụng</Label>
+                  <Select value={selectedTableKey} onValueChange={setSelectedTableKey}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="candidates">Ứng viên (mặc định)</SelectItem>
+                      {(tablesQuery.data ?? []).map((t) => (
+                        <SelectItem key={t.tableKey} value={t.tableKey}>
+                          {t.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <DialogFooter>
                 <Button type="submit" disabled={createMutation.isPending}>
                   {createMutation.isPending ? "Đang tạo..." : "Tạo"}

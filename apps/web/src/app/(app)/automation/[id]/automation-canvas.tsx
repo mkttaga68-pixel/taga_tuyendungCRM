@@ -217,6 +217,8 @@ function AutomationCanvasInner({
   const grouped = useMemo(() => {
     const groups: Record<string, AutomationNodeType[]> = { logic: [], action: [] };
     for (const type of AUTOMATION_NODE_TYPES) {
+      // CONDITION dùng chung executor với IF — ẩn khỏi palette tránh nhầm lẫn
+      if (type === "CONDITION") continue;
       groups[AUTOMATION_NODE_CATEGORY[type]].push(type);
     }
     return groups;

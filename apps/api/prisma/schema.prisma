@@ -184,6 +184,8 @@ model User {
   automationWorkflows   AutomationWorkflow[]
   adSpendEntries         AdSpend[]
   googleOAuthToken      GoogleOAuthToken?
+  customTablesCreated   CustomTable[]        @relation("CustomTableCreator")
+  customRecordsCreated  CustomRecord[]       @relation("CustomRecordCreator")
 
   @@map("users")
 }
@@ -737,4 +739,37 @@ model SystemSetting {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("system_settings")
+}
+
+model CustomTable {
+  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tableKey    String         @unique @map("table_key")
+  name        String
+  description String?
+  sortOrder   Int            @default(0) @map("sort_order")
+  createdBy   String?        @map("created_by") @db.Uuid
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  creator User?          @relation("CustomTableCreator", fields: [createdBy], references: [id])
+  records CustomRecord[]
+
+  @@map("custom_tables")
+}
+
+model CustomRecord {
+  id        String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tableId   String      @map("table_id") @db.Uuid
+  data      Json        @default("{}")
+  sortOrder Int         @default(0) @map("sort_order")
+  createdBy String?     @map("created_by") @db.Uuid
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+  deletedAt DateTime?   @map("deleted_at")
+
+  table   CustomTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  creator User?       @relation("CustomRecordCreator", fields: [createdBy], references: [id])
+
+  @@index([tableId])
+  @@map("custom_records")
 }

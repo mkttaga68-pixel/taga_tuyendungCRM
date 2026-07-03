@@ -26,6 +26,7 @@ import { ReportsModule } from "./reports/reports.module";
 import { EmailTemplatesModule } from "./email-templates/email-templates.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { EmailSettingsModule } from "./email-settings/email-settings.module";
+import { CustomTablesModule } from "./custom-tables/custom-tables.module";
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { EmailSettingsModule } from "./email-settings/email-settings.module";
     EmailTemplatesModule,
     NotificationsModule,
     EmailSettingsModule,
+    CustomTablesModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
