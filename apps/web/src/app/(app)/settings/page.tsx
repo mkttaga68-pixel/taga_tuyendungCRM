@@ -276,7 +276,11 @@ function EmailSettingsCard() {
   });
 
   const status = statusQuery.data;
-  const canSave = apiKey.trim().length > 0 && fromEmail.trim().length > 0 && fromName.trim().length > 0;
+  const needsKey = !status?.configured;
+  const canSave =
+    fromEmail.trim().length > 0 &&
+    fromName.trim().length > 0 &&
+    (!needsKey || apiKey.trim().length > 0);
   const canTest = status?.configured === true && testTo.trim().length > 0;
 
   return (
@@ -320,7 +324,9 @@ function EmailSettingsCard() {
           </p>
 
           <div className="space-y-1.5">
-            <Label htmlFor="resend-api-key">Resend API Key</Label>
+            <Label htmlFor="resend-api-key">
+              Resend API Key{status?.configured && <span className="ml-1 font-normal text-muted-foreground">(để trống = giữ key hiện tại)</span>}
+            </Label>
             <div className="flex gap-2">
               <Input
                 id="resend-api-key"

@@ -46,12 +46,14 @@ export class EmailSettingsService {
     };
   }
 
-  async save(input: { apiKey: string; fromEmail: string; fromName: string }): Promise<void> {
-    const upserts = [
-      { key: KEY_API_KEY, value: input.apiKey },
+  async save(input: { apiKey?: string; fromEmail: string; fromName: string }): Promise<void> {
+    const upserts: { key: string; value: string }[] = [
       { key: KEY_FROM_EMAIL, value: input.fromEmail },
       { key: KEY_FROM_NAME, value: input.fromName },
     ];
+    if (input.apiKey) {
+      upserts.push({ key: KEY_API_KEY, value: input.apiKey });
+    }
     for (const { key, value } of upserts) {
       await this.prisma.systemSetting.upsert({
         where: { key },

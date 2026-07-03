@@ -10,7 +10,7 @@ import { ZodValidationPipe } from "../common/pipes/zod-validation.pipe";
 import type { AccessTokenPayload } from "@taga-crm/shared";
 
 const saveEmailSettingsSchema = z.object({
-  apiKey: z.string().min(1, "API key không được để trống"),
+  apiKey: z.string().min(1, "API key không được để trống").optional(),
   fromEmail: z.string().email("Email gửi không hợp lệ"),
   fromName: z.string().min(1, "Tên người gửi không được để trống").max(100),
 });
