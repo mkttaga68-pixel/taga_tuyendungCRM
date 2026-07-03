@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { EMAIL_TEMPLATE_VARIABLES, type EmailLeafBlock } from "@taga-crm/shared";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,18 +52,48 @@ interface LeafBlockFieldsProps {
 
 export function LeafBlockFields({ block, onChange, compact }: LeafBlockFieldsProps) {
   const gap = compact ? "space-y-2" : "space-y-3";
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const selectionRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 });
+  const pendingCursorRef = useRef<number | null>(null);
+
+  const saveSelection = () => {
+    const el = textareaRef.current;
+    if (el) selectionRef.current = { start: el.selectionStart, end: el.selectionEnd };
+  };
+
+  useEffect(() => {
+    if (pendingCursorRef.current !== null) {
+      const el = textareaRef.current;
+      if (el) {
+        el.focus();
+        el.setSelectionRange(pendingCursorRef.current, pendingCursorRef.current);
+      }
+      pendingCursorRef.current = null;
+    }
+  });
 
   if (block.type === "TEXT") {
+    const insertVariable = (v: string) => {
+      const { start, end } = selectionRef.current;
+      const newContent = block.content.slice(0, start) + v + block.content.slice(end);
+      pendingCursorRef.current = start + v.length;
+      onChange({ ...block, content: newContent });
+    };
+
     return (
       <div className={gap}>
         <div className="flex items-center justify-between">
           <Label>Nội dung</Label>
-          <VariableInsertButton onInsert={(v) => onChange({ ...block, content: block.content + v })} />
+          <VariableInsertButton onInsert={insertVariable} />
         </div>
         <Textarea
+          ref={textareaRef}
           rows={compact ? 3 : 5}
           value={block.content}
           onChange={(e) => onChange({ ...block, content: e.target.value })}
+          onSelect={saveSelection}
+          onKeyUp={saveSelection}
+          onMouseUp={saveSelection}
         />
         <div className="flex gap-2">
           <div className="flex-1 space-y-1">
