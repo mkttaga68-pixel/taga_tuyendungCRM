@@ -166,6 +166,7 @@ export class AutomationWorkflowsService {
       creator: row.creator,
       lastRunStatus: lastRun?.status ?? null,
       lastRunAt: lastRun?.startedAt.toISOString() ?? null,
+      lastRunErrorMessage: lastRun?.errorMessage ?? null,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };

@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -228,9 +229,27 @@ export default function AutomationPage() {
                 </TableCell>
                 <TableCell>
                   {wf.lastRunStatus ? (
-                    <Badge variant={RUN_STATUS_BADGE_VARIANT[wf.lastRunStatus]}>
-                      {AUTOMATION_RUN_STATUS_LABELS[wf.lastRunStatus]}
-                    </Badge>
+                    wf.lastRunStatus === "FAILED" && wf.lastRunErrorMessage ? (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge
+                              variant="destructive"
+                              className="cursor-help underline decoration-dotted"
+                            >
+                              {AUTOMATION_RUN_STATUS_LABELS[wf.lastRunStatus]}
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-sm whitespace-pre-wrap">
+                            {wf.lastRunErrorMessage}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ) : (
+                      <Badge variant={RUN_STATUS_BADGE_VARIANT[wf.lastRunStatus]}>
+                        {AUTOMATION_RUN_STATUS_LABELS[wf.lastRunStatus]}
+                      </Badge>
+                    )
                   ) : (
                     <span className="text-muted-foreground">Chưa chạy</span>
                   )}

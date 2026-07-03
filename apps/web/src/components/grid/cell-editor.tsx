@@ -21,6 +21,7 @@ import { getCellValue, getRelationId } from "./candidate-field-value";
 interface SelectChoice {
   value: string;
   label: string;
+  color?: string;
 }
 
 interface CellEditorProps {
@@ -38,6 +39,59 @@ function computeInitialText(field: FieldDefinitionDto, value: unknown): string {
   }
   if (value === null || value === undefined) return "";
   return String(value);
+}
+
+function MultiSelectEditor({
+  choices,
+  initialSelected,
+  onCommit,
+}: {
+  choices: SelectChoice[];
+  initialSelected: string[];
+  onCommit: (value: unknown) => void;
+}) {
+  const [picked, setPicked] = useState<string[]>(initialSelected);
+
+  function toggle(val: string) {
+    setPicked((prev) => (prev.includes(val) ? prev.filter((v) => v !== val) : [...prev, val]));
+  }
+
+  return (
+    <Popover defaultOpen onOpenChange={(open) => { if (!open) onCommit(picked); }}>
+      <PopoverTrigger asChild>
+        <button type="button" className="h-8 w-full px-2 text-left text-sm truncate">
+          {picked.length === 0 ? (
+            <span className="text-muted-foreground">Chọn...</span>
+          ) : (
+            choices.filter((c) => picked.includes(c.value)).map((c) => c.label).join(", ")
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-48 p-1" align="start">
+        {choices.map((choice) => {
+          const isChecked = picked.includes(choice.value);
+          return (
+            <button
+              key={choice.value}
+              type="button"
+              onClick={() => toggle(choice.value)}
+              className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted/60"
+            >
+              <span
+                className={`size-3.5 shrink-0 rounded-sm border ${isChecked ? "bg-primary border-primary" : "border-input"}`}
+              />
+              <span
+                className="rounded px-1.5 py-0.5 text-xs font-medium"
+                style={{ backgroundColor: `${choice.color ?? "#6B7280"}26`, color: choice.color ?? "#6B7280" }}
+              >
+                {choice.label}
+              </span>
+            </button>
+          );
+        })}
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 export function CellEditor({
@@ -172,18 +226,23 @@ export function CellEditor({
   }
 
   if (field.fieldType === "MULTI_SELECT") {
-    const commitTags = () => onCommit(text.split(",").map((t) => t.trim()).filter(Boolean));
-    return (
-      <Input
-        ref={inputRef}
-        value={text}
-        placeholder="tag1, tag2..."
-        onChange={(e) => setText(e.target.value)}
-        onBlur={commitTags}
-        onKeyDown={(e) => handleKeyDown(e, commitTags)}
-        className="h-8 border-0 shadow-none"
-      />
-    );
+    const choices = (field.options?.choices as SelectChoice[] | undefined) ?? [];
+    const selected = Array.isArray(value) ? (value as string[]) : [];
+    if (choices.length === 0) {
+      const commitTags = () => onCommit(text.split(",").map((t) => t.trim()).filter(Boolean));
+      return (
+        <Input
+          ref={inputRef}
+          value={text}
+          placeholder="tag1, tag2..."
+          onChange={(e) => setText(e.target.value)}
+          onBlur={commitTags}
+          onKeyDown={(e) => handleKeyDown(e, commitTags)}
+          className="h-8 border-0 shadow-none"
+        />
+      );
+    }
+    return <MultiSelectEditor choices={choices} initialSelected={selected} onCommit={onCommit} />;
   }
 
   if (

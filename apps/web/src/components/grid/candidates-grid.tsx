@@ -75,6 +75,7 @@ import {
   removeCandidatesFromCache,
 } from "./candidates-cache.util";
 import { CandidateDrawer } from "@/components/candidate-drawer/candidate-drawer";
+import { AddFieldDialog } from "./add-field-dialog";
 
 const FIELD_DEFS_QUERY_KEY = ["field-definitions", "candidates"] as const;
 const VIEWS_QUERY_KEY = ["views", "candidates"] as const;
@@ -95,8 +96,8 @@ export function CandidatesGrid() {
   const addRecordInputRef = useRef<HTMLInputElement>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingInsertRef = useRef<{ fieldId: string; side: "left" | "right" } | null>(null);
-  const pendingSubmitRef = useRef(false);
   const [addColumnOpen, setAddColumnOpen] = useState(false);
+  const [insertCtx, setInsertCtx] = useState<{ fieldId: string; side: "left" | "right" } | null>(null);
   const currentUser = useAuthStore((s) => s.user);
   const canManageShared = currentUser?.role === "ADMIN" || currentUser?.role === "HR_MANAGER";
 
@@ -639,8 +640,7 @@ export function CandidatesGrid() {
   }
 
   function handleInsertField(fieldId: string, side: "left" | "right") {
-    pendingInsertRef.current = { fieldId, side };
-    setAddColumnOpen(true);
+    setInsertCtx({ fieldId, side });
   }
 
   const allRowsSelected = candidates.length > 0 && candidates.every((c) => selectedRowIds.has(c.id));
@@ -804,17 +804,10 @@ export function CandidatesGrid() {
           onResizeEnd={(fieldId, width) => updateFieldMutation.mutate({ id: fieldId, input: { width } })}
           onEdit={(fieldId, input) => updateFieldMutation.mutate({ id: fieldId, input })}
           onCreateField={(input) => {
-            pendingSubmitRef.current = true;
             createFieldMutation.mutate(input);
           }}
           addColumnOpen={addColumnOpen}
-          onAddColumnOpenChange={(v) => {
-            setAddColumnOpen(v);
-            if (!v) {
-              if (!pendingSubmitRef.current) pendingInsertRef.current = null;
-              pendingSubmitRef.current = false;
-            }
-          }}
+          onAddColumnOpenChange={setAddColumnOpen}
         />
 
         <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative" }}>
@@ -917,6 +910,20 @@ export function CandidatesGrid() {
       )}
 
       <CandidateDrawer candidateId={drawerCandidateId} onClose={() => setDrawerCandidateId(null)} />
+
+      <AddFieldDialog
+        existingFields={fields}
+        open={!!insertCtx}
+        side={insertCtx?.side ?? "right"}
+        adjacentFieldLabel={insertCtx ? (fields.find((f) => f.id === insertCtx.fieldId)?.label ?? undefined) : undefined}
+        onOpenChange={(v) => { if (!v) setInsertCtx(null); }}
+        onCreate={(input) => {
+          if (!insertCtx) return;
+          pendingInsertRef.current = { fieldId: insertCtx.fieldId, side: insertCtx.side };
+          createFieldMutation.mutate(input);
+          setInsertCtx(null);
+        }}
+      />
     </div>
   );
 }

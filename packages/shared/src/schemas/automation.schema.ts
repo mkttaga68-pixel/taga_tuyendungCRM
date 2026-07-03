@@ -171,6 +171,7 @@ export interface AutomationWorkflowDto {
   creator: { id: string; fullName: string } | null;
   lastRunStatus: "RUNNING" | "SUCCESS" | "FAILED" | null;
   lastRunAt: string | null;
+  lastRunErrorMessage: string | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -6,6 +6,7 @@ import type { FieldDefinitionDto, UpdateFieldDefinitionInput } from "@taga-crm/s
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -34,12 +35,14 @@ interface EditFieldDialogProps {
 
 export function EditFieldDialog({ field, open, onOpenChange, onSave }: EditFieldDialogProps) {
   const [label, setLabel] = useState(field.label);
+  const [isRequired, setIsRequired] = useState(field.isRequired);
   const [selectOptions, setSelectOptions] = useState<SelectChoice[]>([]);
   const [selectOptionInput, setSelectOptionInput] = useState("");
 
   useEffect(() => {
     if (open) {
       setLabel(field.label);
+      setIsRequired(field.isRequired);
       const choices = (field.options?.choices as SelectChoice[] | undefined) ?? [];
       setSelectOptions(choices.map((c) => ({ label: c.label, color: c.color })));
       setSelectOptionInput("");
@@ -60,6 +63,9 @@ export function EditFieldDialog({ field, open, onOpenChange, onSave }: EditField
     const trimmed = label.trim();
     if (!trimmed) return;
     const input: UpdateFieldDefinitionInput = { label: trimmed };
+    if (!field.isSystem) {
+      input.isRequired = isRequired;
+    }
     if (isSelectType) {
       input.options = {
         choices: selectOptions.map((o) => ({
@@ -91,6 +97,19 @@ export function EditFieldDialog({ field, open, onOpenChange, onSave }: EditField
               onKeyDown={(e) => { if (e.key === "Enter" && !isSelectType) handleSave(); }}
             />
           </div>
+
+          {!field.isSystem && (
+            <div className="flex items-center justify-between">
+              <Label htmlFor="edit-field-required" className="text-sm">
+                Bắt buộc điền
+              </Label>
+              <Switch
+                id="edit-field-required"
+                checked={isRequired}
+                onCheckedChange={setIsRequired}
+              />
+            </div>
+          )}
 
           {isSelectType && (
             <div className="space-y-1.5">
