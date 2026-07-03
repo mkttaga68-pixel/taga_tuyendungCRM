@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ChevronDown, ChevronRight, Plus, Table2, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, Plus, Table2, Trash2 } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -29,7 +29,12 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { NAV_ITEMS } from "./nav-items";
 import { useAuthStore } from "@/stores/auth-store";
-import { createCustomTable, deleteCustomTable, listCustomTables } from "@/lib/custom-tables-api";
+import {
+  createCustomTable,
+  deleteCustomTable,
+  listCustomTables,
+  updateCustomTable,
+} from "@/lib/custom-tables-api";
 import { ApiError } from "@/lib/api-client";
 import type { Role } from "@taga-crm/shared";
 
@@ -40,11 +45,15 @@ export function AppSidebar() {
   const role = useAuthStore((s) => s.user?.role);
   const queryClient = useQueryClient();
 
-  const [candidatesOpen, setCandidatesOpen] = useState(
+  const [tablesOpen, setTablesOpen] = useState(
     pathname === "/candidates" || pathname.startsWith("/tables/"),
   );
   const [createOpen, setCreateOpen] = useState(false);
   const [newTableName, setNewTableName] = useState("");
+
+  // Rename inline state
+  const [renamingKey, setRenamingKey] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
 
   const tablesQuery = useQuery({
     queryKey: ["custom-tables"],
@@ -65,6 +74,19 @@ export function AppSidebar() {
     },
   });
 
+  const renameMutation = useMutation({
+    mutationFn: ({ tableKey, name }: { tableKey: string; name: string }) =>
+      updateCustomTable(tableKey, { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["custom-tables"] });
+      setRenamingKey(null);
+      toast.success("Đã đổi tên bảng");
+    },
+    onError: (err) => {
+      toast.error(err instanceof ApiError ? err.message : "Không thể đổi tên");
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: (tableKey: string) => deleteCustomTable(tableKey),
     onSuccess: () => {
@@ -75,6 +97,17 @@ export function AppSidebar() {
       toast.error(err instanceof ApiError ? err.message : "Không thể xoá bảng");
     },
   });
+
+  function startRename(tableKey: string, currentName: string) {
+    setRenamingKey(tableKey);
+    setRenameValue(currentName);
+  }
+
+  function commitRename(tableKey: string) {
+    const trimmed = renameValue.trim();
+    if (!trimmed) { setRenamingKey(null); return; }
+    renameMutation.mutate({ tableKey, name: trimmed });
+  }
 
   const items = NAV_ITEMS.filter(
     (item) => item.href !== "/candidates" && (!item.roles || (role && item.roles.includes(role))),
@@ -99,31 +132,17 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {/* Ứng viên — mục mở rộng chứa candidates + custom tables */}
+              {/* Bảng — nhóm chứa candidates + custom tables */}
               <SidebarMenuItem>
                 <SidebarMenuButton
                   isActive={pathname === "/candidates" || pathname.startsWith("/tables/")}
-                  onClick={() => setCandidatesOpen((o) => !o)}
+                  onClick={() => setTablesOpen((o) => !o)}
                   className="w-full"
-                  tooltip="Ứng viên"
+                  tooltip="Bảng"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="size-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                    <circle cx="9" cy="7" r="4" />
-                    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                  </svg>
-                  <span className="flex-1">Ứng viên</span>
-                  {candidatesOpen ? (
+                  <Table2 className="size-4" />
+                  <span className="flex-1">Bảng</span>
+                  {tablesOpen ? (
                     <ChevronDown className="size-3.5 shrink-0 group-data-[collapsible=icon]:hidden" />
                   ) : (
                     <ChevronRight className="size-3.5 shrink-0 group-data-[collapsible=icon]:hidden" />
@@ -132,7 +151,7 @@ export function AppSidebar() {
               </SidebarMenuItem>
 
               {/* Sub-items */}
-              {candidatesOpen && (
+              {tablesOpen && (
                 <div className="group-data-[collapsible=icon]:hidden ml-3 border-l pl-2 space-y-0.5">
                   {/* Bảng mặc định: Ứng viên */}
                   <Link
@@ -149,31 +168,57 @@ export function AppSidebar() {
 
                   {/* Custom tables */}
                   {customTables.map((t) => (
-                    <div key={t.tableKey} className="group/item flex items-center gap-1">
-                      <Link
-                        href={`/tables/${t.tableKey}`}
-                        className={`flex flex-1 items-center gap-1.5 rounded-md px-2 py-1 text-sm transition-colors ${
-                          pathname === `/tables/${t.tableKey}`
-                            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                            : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
-                        }`}
-                      >
-                        <Table2 className="size-3.5 shrink-0" />
-                        <span className="truncate">{t.name}</span>
-                      </Link>
-                      {canManage && (
-                        <button
-                          type="button"
-                          title="Xoá bảng"
-                          className="hidden group-hover/item:flex size-5 items-center justify-center rounded text-muted-foreground hover:text-destructive"
-                          onClick={() => {
-                            if (confirm(`Xoá bảng "${t.name}"? Tất cả bản ghi sẽ bị xoá.`)) {
-                              deleteMutation.mutate(t.tableKey);
-                            }
-                          }}
+                    <div key={t.tableKey} className="group/item flex items-center gap-0.5">
+                      {renamingKey === t.tableKey ? (
+                        <div className="flex flex-1 items-center gap-1 px-1">
+                          <Input
+                            className="h-6 py-0 text-xs"
+                            value={renameValue}
+                            autoFocus
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") commitRename(t.tableKey);
+                              if (e.key === "Escape") setRenamingKey(null);
+                            }}
+                            onBlur={() => commitRename(t.tableKey)}
+                          />
+                        </div>
+                      ) : (
+                        <Link
+                          href={`/tables/${t.tableKey}`}
+                          className={`flex flex-1 items-center gap-1.5 rounded-md px-2 py-1 text-sm transition-colors ${
+                            pathname === `/tables/${t.tableKey}`
+                              ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                              : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+                          }`}
                         >
-                          <Trash2 className="size-3" />
-                        </button>
+                          <Table2 className="size-3.5 shrink-0" />
+                          <span className="truncate">{t.name}</span>
+                        </Link>
+                      )}
+                      {canManage && renamingKey !== t.tableKey && (
+                        <div className="hidden group-hover/item:flex items-center gap-0.5">
+                          <button
+                            type="button"
+                            title="Đổi tên"
+                            className="size-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground"
+                            onClick={() => startRename(t.tableKey, t.name)}
+                          >
+                            <Pencil className="size-3" />
+                          </button>
+                          <button
+                            type="button"
+                            title="Xoá bảng"
+                            className="size-5 flex items-center justify-center rounded text-muted-foreground hover:text-destructive"
+                            onClick={() => {
+                              if (confirm(`Xoá bảng "${t.name}"? Tất cả bản ghi sẽ bị xoá.`)) {
+                                deleteMutation.mutate(t.tableKey);
+                              }
+                            }}
+                          >
+                            <Trash2 className="size-3" />
+                          </button>
+                        </div>
                       )}
                     </div>
                   ))}
@@ -192,7 +237,7 @@ export function AppSidebar() {
                 </div>
               )}
 
-              {/* Other nav items (excluding /candidates which we handle above) */}
+              {/* Other nav items */}
               {items.map((item) => {
                 const isActive =
                   pathname === item.href || pathname.startsWith(`${item.href}/`);
