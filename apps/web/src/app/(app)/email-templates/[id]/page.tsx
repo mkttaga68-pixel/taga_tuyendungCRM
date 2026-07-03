@@ -1,16 +1,17 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useMemo, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ArrowLeft, Eye } from "lucide-react";
-import type { EmailBlock, EmailTemplateDto } from "@taga-crm/shared";
+import { EMAIL_TEMPLATE_VARIABLES, type EmailBlock, type EmailTemplateDto } from "@taga-crm/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getEmailTemplate, renderEmailBlocksPreview, updateEmailTemplate } from "@/lib/email-templates-api";
+import { listFieldDefinitions } from "@/lib/field-definitions-api";
 import { ApiError } from "@/lib/api-client";
 import { EmailBuilder } from "./email-builder";
 
@@ -35,6 +36,23 @@ function TemplateEditor({ id, template }: { id: string; template: EmailTemplateD
   const [subject, setSubject] = useState(template.subject);
   const [blocks, setBlocks] = useState<EmailBlock[]>(template.blocks);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+
+  const fieldDefsQuery = useQuery({
+    queryKey: ["field-definitions", "candidates"],
+    queryFn: () => listFieldDefinitions("candidates"),
+    staleTime: 60_000,
+  });
+
+  const variables = useMemo(() => {
+    const customFieldVars =
+      (fieldDefsQuery.data ?? [])
+        .filter((f) => !f.isSystem)
+        .map((f) => ({
+          key: `candidate.customFields.${f.fieldKey}`,
+          label: f.label,
+        }));
+    return [...EMAIL_TEMPLATE_VARIABLES, ...customFieldVars];
+  }, [fieldDefsQuery.data]);
 
   const saveMutation = useMutation({
     mutationFn: () => updateEmailTemplate(id, { name, subject, blocks }),
@@ -88,7 +106,7 @@ function TemplateEditor({ id, template }: { id: string; template: EmailTemplateD
       </div>
 
       <div className="min-h-0 flex-1">
-        <EmailBuilder blocks={blocks} onChange={setBlocks} />
+        <EmailBuilder blocks={blocks} onChange={setBlocks} variables={variables} />
       </div>
 
       <Dialog open={!!previewHtml} onOpenChange={(next) => !next && setPreviewHtml(null)}>

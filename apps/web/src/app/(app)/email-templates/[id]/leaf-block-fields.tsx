@@ -20,11 +20,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-interface VariableInsertButtonProps {
-  onInsert: (variable: string) => void;
+export interface TemplateVariable {
+  key: string;
+  label: string;
 }
 
-function VariableInsertButton({ onInsert }: VariableInsertButtonProps) {
+interface VariableInsertButtonProps {
+  onInsert: (variable: string) => void;
+  variables: TemplateVariable[];
+}
+
+function VariableInsertButton({ onInsert, variables }: VariableInsertButtonProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -32,8 +38,8 @@ function VariableInsertButton({ onInsert }: VariableInsertButtonProps) {
           + Chèn biến
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {EMAIL_TEMPLATE_VARIABLES.map((v) => (
+      <DropdownMenuContent align="end" className="max-h-72 overflow-y-auto">
+        {variables.map((v) => (
           <DropdownMenuItem key={v.key} onClick={() => onInsert(`{{${v.key}}}`)}>
             {v.label}{" "}
             <span className="ml-1 font-mono text-xs text-muted-foreground">{`{{${v.key}}}`}</span>
@@ -48,10 +54,12 @@ interface LeafBlockFieldsProps {
   block: EmailLeafBlock;
   onChange: (next: EmailLeafBlock) => void;
   compact?: boolean;
+  variables?: TemplateVariable[];
 }
 
-export function LeafBlockFields({ block, onChange, compact }: LeafBlockFieldsProps) {
+export function LeafBlockFields({ block, onChange, compact, variables }: LeafBlockFieldsProps) {
   const gap = compact ? "space-y-2" : "space-y-3";
+  const vars = variables ?? EMAIL_TEMPLATE_VARIABLES;
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const selectionRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 });
   const pendingCursorRef = useRef<number | null>(null);
@@ -84,7 +92,7 @@ export function LeafBlockFields({ block, onChange, compact }: LeafBlockFieldsPro
       <div className={gap}>
         <div className="flex items-center justify-between">
           <Label>Nội dung</Label>
-          <VariableInsertButton onInsert={insertVariable} />
+          <VariableInsertButton onInsert={insertVariable} variables={vars} />
         </div>
         <Textarea
           ref={textareaRef}
@@ -153,7 +161,7 @@ export function LeafBlockFields({ block, onChange, compact }: LeafBlockFieldsPro
       <div className={gap}>
         <div className="flex items-center justify-between">
           <Label className="text-xs">Nhãn nút</Label>
-          <VariableInsertButton onInsert={(v) => onChange({ ...block, label: block.label + v })} />
+          <VariableInsertButton onInsert={(v) => onChange({ ...block, label: block.label + v })} variables={vars} />
         </div>
         <Input value={block.label} onChange={(e) => onChange({ ...block, label: e.target.value })} />
         <div className="space-y-1">

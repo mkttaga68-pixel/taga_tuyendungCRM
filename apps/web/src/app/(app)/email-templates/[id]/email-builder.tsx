@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { BlockCanvasRow } from "./block-canvas-row";
-import { LeafBlockFields } from "./leaf-block-fields";
+import { LeafBlockFields, type TemplateVariable } from "./leaf-block-fields";
 import { createDefaultBlock, describeBlock } from "./block-helpers";
 
 const LEAF_BLOCK_TYPES = EMAIL_BLOCK_TYPES.filter((t) => t !== "SECTION");
@@ -36,9 +36,10 @@ const LEAF_BLOCK_TYPES = EMAIL_BLOCK_TYPES.filter((t) => t !== "SECTION");
 interface EmailBuilderProps {
   blocks: EmailBlock[];
   onChange: (blocks: EmailBlock[]) => void;
+  variables?: TemplateVariable[];
 }
 
-export function EmailBuilder({ blocks, onChange }: EmailBuilderProps) {
+export function EmailBuilder({ blocks, onChange, variables }: EmailBuilderProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
@@ -123,12 +124,14 @@ export function EmailBuilder({ blocks, onChange }: EmailBuilderProps) {
           <LeafBlockFields
             block={selectedBlock}
             onChange={(next) => updateBlock(selectedBlock.id, next)}
+            variables={variables}
           />
         )}
         {selectedBlock && selectedBlock.type === "SECTION" && (
           <SectionFields
             block={selectedBlock}
             onChange={(next) => updateBlock(selectedBlock.id, next)}
+            variables={variables}
           />
         )}
       </div>
@@ -139,9 +142,10 @@ export function EmailBuilder({ blocks, onChange }: EmailBuilderProps) {
 interface SectionFieldsProps {
   block: Extract<EmailBlock, { type: "SECTION" }>;
   onChange: (next: Extract<EmailBlock, { type: "SECTION" }>) => void;
+  variables?: TemplateVariable[];
 }
 
-function SectionFields({ block, onChange }: SectionFieldsProps) {
+function SectionFields({ block, onChange, variables }: SectionFieldsProps) {
   const [childAddType, setChildAddType] = useState<EmailBlockType>("TEXT");
 
   function updateChild(id: string, next: EmailLeafBlock) {
@@ -228,7 +232,7 @@ function SectionFields({ block, onChange }: SectionFieldsProps) {
               </span>
             </summary>
             <div className="mt-2">
-              <LeafBlockFields block={child} onChange={(next) => updateChild(child.id, next)} compact />
+              <LeafBlockFields block={child} onChange={(next) => updateChild(child.id, next)} compact variables={variables} />
             </div>
           </details>
         ))}
