@@ -15,13 +15,25 @@ export const emailExecutor: NodeExecutor = async ({
   triggerRecordId,
   execVars,
 }) => {
-  const config = emailConfigSchema.parse(node.config);
+  const rawConfig = node.config as Record<string, unknown>;
+  if (!rawConfig.to) {
+    throw new Error(
+      'Node Email chưa được điền trường "Gửi tới". Vào Automation Builder, chọn node Email và nhập email người nhận (VD: {{candidate.email}}).',
+    );
+  }
+  const config = emailConfigSchema.parse(rawConfig);
   const apiKey = process.env.RESEND_API_KEY;
   const fromAddress = process.env.EMAIL_FROM_ADDRESS;
 
   const candidate = await fetchCandidateContext(prisma, triggerRecordId);
   const data = { candidate, vars: execVars.vars, loopItem: execVars.vars.loopItem };
   const to = interpolateTemplate(config.to, data);
+
+  if (!to || typeof to !== "string" || !to.includes("@")) {
+    throw new Error(
+      `Địa chỉ email người nhận không hợp lệ sau khi render: "${String(to)}". Kiểm tra trường "Gửi tới" trong node Email.`,
+    );
+  }
 
   let rawSubject: string;
   let rawHtml: string;

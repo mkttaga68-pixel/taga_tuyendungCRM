@@ -82,6 +82,13 @@ function GridCellImpl({
     );
   }
 
+  const singleClickEdit =
+    field.fieldType === "SELECT" ||
+    field.fieldType === "MULTI_SELECT" ||
+    field.fieldType === "DATE" ||
+    field.fieldKey === "statusId" ||
+    field.fieldKey === "recruiterId";
+
   return (
     <div
       style={{ width }}
@@ -91,8 +98,11 @@ function GridCellImpl({
         isInRange && !isActive && "bg-primary/10",
         !editable && "bg-muted/40",
       )}
-      onMouseDown={(e) => onActivate(e.shiftKey)}
-      onDoubleClick={() => editable && onStartEdit()}
+      onMouseDown={(e) => {
+        onActivate(e.shiftKey);
+        if (editable && singleClickEdit && !isEditing && !e.shiftKey) onStartEdit();
+      }}
+      onDoubleClick={() => editable && !singleClickEdit && onStartEdit()}
     >
       {isEditing ? (
         <CellEditor

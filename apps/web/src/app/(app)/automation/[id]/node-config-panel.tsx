@@ -349,11 +349,17 @@ export function NodeConfigPanel({ node, users, onChangeConfig, onToggleEntry, on
 
       {type === "EMAIL" && (
         <>
-          <Input
-            placeholder="To"
-            value={String(localConfig.to ?? "")}
-            onChange={(e) => patch({ to: e.target.value })}
-          />
+          <div className="space-y-1">
+            <Label className="text-xs">Gửi tới (email người nhận)</Label>
+            <Input
+              placeholder="{{candidate.email}}"
+              value={String(localConfig.to ?? "")}
+              onChange={(e) => patch({ to: e.target.value })}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Dùng <code className="rounded bg-muted px-1">{"{{candidate.email}}"}</code> để gửi tới email ứng viên.
+            </p>
+          </div>
 
           <div className="space-y-1">
             <Label className="text-xs">Nội dung</Label>
