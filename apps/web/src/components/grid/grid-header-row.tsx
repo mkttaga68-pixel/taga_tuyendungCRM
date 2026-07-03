@@ -22,6 +22,8 @@ interface GridHeaderRowProps {
   onRename: (fieldId: string, label: string) => void;
   onToggleHidden: (fieldId: string, isHidden: boolean) => void;
   onDelete: (fieldId: string) => void;
+  onInsertLeft: (fieldId: string) => void;
+  onInsertRight: (fieldId: string) => void;
   onResizeEnd: (fieldId: string, width: number) => void;
   onCreateField: (input: {
     label: string;
@@ -29,6 +31,8 @@ interface GridHeaderRowProps {
     fieldType: (typeof CREATABLE_CUSTOM_FIELD_TYPES)[number];
     options?: Record<string, unknown>;
   }) => void;
+  addColumnOpen?: boolean;
+  onAddColumnOpenChange?: (open: boolean) => void;
 }
 
 export function GridHeaderRow({
@@ -39,8 +43,12 @@ export function GridHeaderRow({
   onRename,
   onToggleHidden,
   onDelete,
+  onInsertLeft,
+  onInsertRight,
   onResizeEnd,
   onCreateField,
+  addColumnOpen,
+  onAddColumnOpenChange,
 }: GridHeaderRowProps) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
@@ -76,13 +84,20 @@ export function GridHeaderRow({
               onRename={(label) => onRename(field.id, label)}
               onToggleHidden={() => onToggleHidden(field.id, !field.isHidden)}
               onDelete={() => onDelete(field.id)}
+              onInsertLeft={() => onInsertLeft(field.id)}
+              onInsertRight={() => onInsertRight(field.id)}
               onResizeEnd={(w) => onResizeEnd(field.id, w)}
             />
           ))}
         </SortableContext>
       </DndContext>
 
-      <AddColumnPopover existingFields={fields} onCreate={onCreateField} />
+      <AddColumnPopover
+        existingFields={fields}
+        onCreate={onCreateField}
+        open={addColumnOpen}
+        onOpenChange={onAddColumnOpenChange}
+      />
     </div>
   );
 }

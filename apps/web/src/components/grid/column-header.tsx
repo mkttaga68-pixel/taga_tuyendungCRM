@@ -51,10 +51,12 @@ interface ColumnHeaderProps {
   onRename: (label: string) => void;
   onToggleHidden: () => void;
   onDelete: () => void;
+  onInsertLeft: () => void;
+  onInsertRight: () => void;
   onResizeEnd: (width: number) => void;
 }
 
-export function ColumnHeader({ field, width, onRename, onToggleHidden, onDelete, onResizeEnd }: ColumnHeaderProps) {
+export function ColumnHeader({ field, width, onRename, onToggleHidden, onDelete, onInsertLeft, onInsertRight, onResizeEnd }: ColumnHeaderProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: field.id,
   });
@@ -146,6 +148,9 @@ export function ColumnHeader({ field, width, onRename, onToggleHidden, onDelete,
           <DropdownMenuItem onClick={onToggleHidden}>
             {field.isHidden ? "Hiện trường" : "Ẩn trường"}
           </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={onInsertLeft}>Thêm trường bên trái</DropdownMenuItem>
+          <DropdownMenuItem onClick={onInsertRight}>Thêm trường bên phải</DropdownMenuItem>
           {!field.isSystem && (
             <>
               <DropdownMenuSeparator />

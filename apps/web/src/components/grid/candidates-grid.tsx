@@ -94,6 +94,8 @@ export function CandidatesGrid() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const addRecordInputRef = useRef<HTMLInputElement>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingInsertRef = useRef<{ fieldId: string; side: "left" | "right" } | null>(null);
+  const [addColumnOpen, setAddColumnOpen] = useState(false);
   const currentUser = useAuthStore((s) => s.user);
   const canManageShared = currentUser?.role === "ADMIN" || currentUser?.role === "HR_MANAGER";
 
@@ -417,8 +419,24 @@ export function CandidatesGrid() {
       fieldType: (typeof CREATABLE_CUSTOM_FIELD_TYPES)[number];
       options?: Record<string, unknown>;
     }) => createFieldDefinition(TABLE_KEY, input),
-    onSuccess: (created) =>
-      queryClient.setQueryData<FieldDefinitionDto[]>(FIELD_DEFS_QUERY_KEY, (old = []) => [...old, created]),
+    onSuccess: (created) => {
+      queryClient.setQueryData<FieldDefinitionDto[]>(FIELD_DEFS_QUERY_KEY, (old = []) => [...old, created]);
+
+      const pending = pendingInsertRef.current;
+      if (pending) {
+        pendingInsertRef.current = null;
+        const allFields = queryClient.getQueryData<FieldDefinitionDto[]>(FIELD_DEFS_QUERY_KEY) ?? [];
+        const adjIdx = allFields.findIndex((f) => f.id === pending.fieldId);
+        if (adjIdx !== -1) {
+          const without = allFields.filter((f) => f.id !== created.id);
+          const insertIdx = pending.side === "left" ? adjIdx : adjIdx + 1;
+          const reordered = [...without];
+          reordered.splice(insertIdx, 0, created);
+          queryClient.setQueryData<FieldDefinitionDto[]>(FIELD_DEFS_QUERY_KEY, reordered);
+          reorderMutation.mutate(reordered.map((f) => f.id));
+        }
+      }
+    },
     onError: (err) => toast.error(err instanceof ApiError ? err.message : "Không tạo được trường"),
   });
 
@@ -619,6 +637,11 @@ export function CandidatesGrid() {
     deleteFieldMutation.mutate(fieldId);
   }
 
+  function handleInsertField(fieldId: string, side: "left" | "right") {
+    pendingInsertRef.current = { fieldId, side };
+    setAddColumnOpen(true);
+  }
+
   const allRowsSelected = candidates.length > 0 && candidates.every((c) => selectedRowIds.has(c.id));
 
   if (fieldsQuery.isLoading || viewsQuery.isLoading || !activeViewId || candidatesQuery.isLoading) {
@@ -775,8 +798,15 @@ export function CandidatesGrid() {
             updateFieldMutation.mutate({ id: fieldId, input: { isHidden } })
           }
           onDelete={handleDeleteField}
+          onInsertLeft={(fieldId) => handleInsertField(fieldId, "left")}
+          onInsertRight={(fieldId) => handleInsertField(fieldId, "right")}
           onResizeEnd={(fieldId, width) => updateFieldMutation.mutate({ id: fieldId, input: { width } })}
           onCreateField={(input) => createFieldMutation.mutate(input)}
+          addColumnOpen={addColumnOpen}
+          onAddColumnOpenChange={(v) => {
+            setAddColumnOpen(v);
+            if (!v) pendingInsertRef.current = null;
+          }}
         />
 
         <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative" }}>

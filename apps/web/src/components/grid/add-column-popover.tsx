@@ -60,6 +60,8 @@ interface AddColumnPopoverProps {
     fieldType: CreatableType;
     options?: Record<string, unknown>;
   }) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 type LucideIcon = React.ComponentType<{ className?: string }>;
@@ -124,8 +126,14 @@ function toFieldKey(label: string): string {
   return ascii ? `c_${ascii}` : `c_field_${Date.now()}`;
 }
 
-export function AddColumnPopover({ existingFields, onCreate }: AddColumnPopoverProps) {
-  const [open, setOpen] = useState(false);
+export function AddColumnPopover({ existingFields, onCreate, open: controlledOpen, onOpenChange }: AddColumnPopoverProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+
+  function setOpen(v: boolean) {
+    setInternalOpen(v);
+    onOpenChange?.(v);
+  }
   const [step, setStep] = useState<"pick" | "config">("pick");
   const [label, setLabel] = useState("");
   const [fieldType, setFieldType] = useState<CreatableType>("TEXT");
