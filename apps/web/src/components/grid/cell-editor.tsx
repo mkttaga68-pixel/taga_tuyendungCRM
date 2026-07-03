@@ -117,19 +117,24 @@ export function CellEditor({
   if (field.fieldKey === "statusId") {
     const currentStage = pipelineStages.find((s) => s.id === getRelationId(candidate, "statusId"));
     return (
-      <Popover defaultOpen onOpenChange={(open) => !open && onCancel()}>
+      <Popover open onOpenChange={() => {}}>
         <PopoverTrigger asChild>
           <button type="button" className="h-8 w-full truncate px-2 text-left text-sm">
             {currentStage?.label ?? <span className="text-muted-foreground">Chọn...</span>}
           </button>
         </PopoverTrigger>
-        <PopoverContent className="w-48 p-1" align="start">
+        <PopoverContent
+          className="w-48 p-1"
+          align="start"
+          onInteractOutside={(e) => { e.preventDefault(); onCancel(); }}
+          onEscapeKeyDown={onCancel}
+        >
           {pipelineStages.map((stage) => (
             <button
               key={stage.id}
               type="button"
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => { onCommit(stage.id); onCancel(); }}
+              onClick={() => onCommit(stage.id)}
               className="flex w-full items-center rounded px-2 py-1.5 text-sm hover:bg-muted/60"
             >
               {stage.label}
@@ -143,17 +148,22 @@ export function CellEditor({
   if (field.fieldKey === "recruiterId") {
     const currentUser2 = users.find((u) => u.id === getRelationId(candidate, "recruiterId"));
     return (
-      <Popover defaultOpen onOpenChange={(open) => !open && onCancel()}>
+      <Popover open onOpenChange={() => {}}>
         <PopoverTrigger asChild>
           <button type="button" className="h-8 w-full truncate px-2 text-left text-sm">
             {currentUser2?.fullName ?? <span className="text-muted-foreground">— Không gán —</span>}
           </button>
         </PopoverTrigger>
-        <PopoverContent className="w-48 p-1" align="start">
+        <PopoverContent
+          className="w-48 p-1"
+          align="start"
+          onInteractOutside={(e) => { e.preventDefault(); onCancel(); }}
+          onEscapeKeyDown={onCancel}
+        >
           <button
             type="button"
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => { onCommit(null); onCancel(); }}
+            onClick={() => onCommit(null)}
             className="flex w-full items-center rounded px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted/60"
           >
             — Không gán —
@@ -163,7 +173,7 @@ export function CellEditor({
               key={u.id}
               type="button"
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => { onCommit(u.id); onCancel(); }}
+              onClick={() => onCommit(u.id)}
               className="flex w-full items-center rounded px-2 py-1.5 text-sm hover:bg-muted/60"
             >
               {u.fullName}
@@ -178,7 +188,7 @@ export function CellEditor({
     const choices = (field.options?.choices as SelectChoice[] | undefined) ?? [];
     const currentChoice = choices.find((c) => c.value === value);
     return (
-      <Popover defaultOpen onOpenChange={(open) => !open && onCancel()}>
+      <Popover open onOpenChange={() => {}}>
         <PopoverTrigger asChild>
           <button type="button" className="h-8 w-full truncate px-2 text-left text-sm">
             {currentChoice ? (
@@ -196,13 +206,18 @@ export function CellEditor({
             )}
           </button>
         </PopoverTrigger>
-        <PopoverContent className="w-48 p-1" align="start">
+        <PopoverContent
+          className="w-48 p-1"
+          align="start"
+          onInteractOutside={(e) => { e.preventDefault(); onCancel(); }}
+          onEscapeKeyDown={onCancel}
+        >
           {choices.map((choice) => (
             <button
               key={choice.value}
               type="button"
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => { onCommit(choice.value); onCancel(); }}
+              onClick={() => onCommit(choice.value)}
               className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted/60"
             >
               <span
@@ -224,13 +239,18 @@ export function CellEditor({
   if (field.fieldType === "DATE") {
     const dateValue = value ? new Date(String(value)) : undefined;
     return (
-      <Popover defaultOpen onOpenChange={(open) => !open && onCancel()}>
+      <Popover open onOpenChange={() => {}}>
         <PopoverTrigger asChild>
           <button type="button" className="h-8 w-full px-2 text-left text-sm">
             {dateValue ? format(dateValue, "dd/MM/yyyy") : "Chọn ngày"}
           </button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
+        <PopoverContent
+          className="w-auto p-0"
+          align="start"
+          onInteractOutside={(e) => { e.preventDefault(); onCancel(); }}
+          onEscapeKeyDown={onCancel}
+        >
           <Calendar
             mode="single"
             selected={dateValue}
