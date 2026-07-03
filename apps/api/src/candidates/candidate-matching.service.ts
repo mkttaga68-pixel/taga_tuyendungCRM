@@ -136,14 +136,45 @@ export class CandidateMatchingService {
         typeByKey.set(field.key, field.type);
       }
     } else {
-      // Chưa cấu hình Form Builder cho landing page này — fallback theo đúng
-      // tên field mà script.js gốc của TAGA vẫn dùng, để không mất dữ liệu.
+      // Fallback khi chưa cấu hình Form Builder — map cả key kỹ thuật lẫn
+      // label tiếng Việt (Ladipage dùng label làm name attribute).
+      // fullName
       mappingByKey.set("hoTen", "fullName");
+      mappingByKey.set("fullName", "fullName");
+      mappingByKey.set("full_name", "fullName");
+      mappingByKey.set("Họ và tên", "fullName");
+      mappingByKey.set("Ho va ten", "fullName");
+      mappingByKey.set("Họ tên", "fullName");
+      // phone
       mappingByKey.set("soDienThoai", "phone");
+      mappingByKey.set("phone", "phone");
+      mappingByKey.set("Số điện thoại", "phone");
+      mappingByKey.set("So dien thoai", "phone");
+      mappingByKey.set("dien_thoai", "phone");
+      // email
       mappingByKey.set("email", "email");
+      mappingByKey.set("Email", "email");
+      // dob
       mappingByKey.set("ngaySinh", "dob");
+      mappingByKey.set("dob", "dob");
+      mappingByKey.set("Ngày sinh", "dob");
+      mappingByKey.set("Ngay sinh", "dob");
+      mappingByKey.set("ngay_sinh", "dob");
+      // address
       mappingByKey.set("diaChi", "address");
+      mappingByKey.set("address", "address");
+      mappingByKey.set("Địa chỉ", "address");
+      mappingByKey.set("Dia chi", "address");
+      mappingByKey.set("dia_chi", "address");
+      // areaBranch
       mappingByKey.set("khuVuc", "areaBranch");
+      mappingByKey.set("areaBranch", "areaBranch");
+      mappingByKey.set("Khu vực", "areaBranch");
+      mappingByKey.set("Địa chỉ - Quận/Huyện", "areaBranch");
+      mappingByKey.set("Quận/Huyện", "areaBranch");
+      mappingByKey.set("Quan/Huyen", "areaBranch");
+      mappingByKey.set("quan_huyen", "areaBranch");
+      mappingByKey.set("district", "areaBranch");
     }
 
     const result: ExtractedFields = {

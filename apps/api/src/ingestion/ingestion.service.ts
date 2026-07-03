@@ -141,10 +141,37 @@ export class IngestionService {
   private normalizeIncomingBody(body: Record<string, unknown>, honeypotKey: string): unknown {
     const honeypotValue = body[honeypotKey];
 
-    if (body.values && typeof body.values === "object") {
+    // Chuẩn: { values: { ... }, fbc, fbp, ... }
+    if (body.values && typeof body.values === "object" && !Array.isArray(body.values)) {
       return { ...body, honeypot: honeypotValue };
     }
 
+    // Ladipage format 1: { data: { "Họ và tên": "...", ... }, ... }
+    if (body.data && typeof body.data === "object" && !Array.isArray(body.data)) {
+      const flat = body.data as Record<string, unknown>;
+      const values: Record<string, unknown> = {};
+      const top: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(flat)) {
+        if ((TOP_LEVEL_PAYLOAD_KEYS as readonly string[]).includes(key)) {
+          top[key] = value;
+        } else {
+          values[key] = value;
+        }
+      }
+      return { values, pageUrl: body.page_url ?? body.pageUrl, ...top, honeypot: honeypotValue };
+    }
+
+    // Ladipage format 2: { fields: [{ name: "Họ và tên", value: "..." }], ... }
+    if (Array.isArray(body.fields)) {
+      const values: Record<string, unknown> = {};
+      for (const field of body.fields as Array<{ name?: string; label?: string; value?: unknown }>) {
+        const key = field.name ?? field.label;
+        if (key) values[key] = field.value;
+      }
+      return { values, pageUrl: body.page_url ?? body.pageUrl, honeypot: honeypotValue };
+    }
+
+    // Flat body (urlencoded hoặc JSON phẳng): mọi key không phải top-level → values
     const values: Record<string, unknown> = {};
     const top: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(body)) {
