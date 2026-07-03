@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { CalendarDays, KeyRound, UserRound } from "lucide-react";
+import { CalendarDays, KeyRound, Mail, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,11 @@ import {
   getGoogleIntegrationStatus,
 } from "@/lib/google-integration-api";
 import { changePassword, updateProfile } from "@/lib/auth-api";
+import {
+  getEmailSettingsStatus,
+  saveEmailSettings,
+  sendTestEmail,
+} from "@/lib/email-settings-api";
 import { ApiError } from "@/lib/api-client";
 import { useAuthStore } from "@/stores/auth-store";
 
@@ -229,6 +234,151 @@ function ChangePasswordCard() {
   );
 }
 
+function EmailSettingsCard() {
+  const queryClient = useQueryClient();
+  const statusQuery = useQuery({
+    queryKey: ["settings", "email", "status"],
+    queryFn: getEmailSettingsStatus,
+  });
+
+  const [apiKey, setApiKey] = useState("");
+  const [fromEmail, setFromEmail] = useState("");
+  const [fromName, setFromName] = useState("");
+  const [showKey, setShowKey] = useState(false);
+
+  useEffect(() => {
+    if (statusQuery.data) {
+      setFromEmail(statusQuery.data.fromEmail);
+      setFromName(statusQuery.data.fromName);
+    }
+  }, [statusQuery.data]);
+
+  const saveMutation = useMutation({
+    mutationFn: () => saveEmailSettings({ apiKey, fromEmail, fromName }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["settings", "email", "status"] });
+      setApiKey("");
+      setShowKey(false);
+      toast.success("Đã lưu cấu hình email");
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiError ? error.message : "Không thể lưu cấu hình");
+    },
+  });
+
+  const testMutation = useMutation({
+    mutationFn: sendTestEmail,
+    onSuccess: (r) => toast.success(`Đã gửi email thử đến ${r.sentTo}`),
+    onError: (error) => {
+      toast.error(error instanceof ApiError ? error.message : "Gửi thử thất bại");
+    },
+  });
+
+  const status = statusQuery.data;
+  const canSave = apiKey.trim().length > 0 && fromEmail.trim().length > 0 && fromName.trim().length > 0;
+
+  return (
+    <Card className="max-w-xl">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Mail className="size-4" /> Kết nối Email (Resend)
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          Cấu hình Resend để hệ thống có thể gửi email tự động (Automation, thông báo ứng viên...).
+          Lấy API key tại{" "}
+          <a
+            href="https://resend.com/api-keys"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline"
+          >
+            resend.com/api-keys
+          </a>
+          .
+        </p>
+
+        {statusQuery.isLoading ? (
+          <p className="text-sm text-muted-foreground">Đang tải...</p>
+        ) : status?.configured ? (
+          <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
+            <span className="text-muted-foreground">API key hiện tại: </span>
+            <span className="font-mono">{status.maskedKey}</span>
+          </div>
+        ) : (
+          <div className="rounded-md border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-700 dark:border-orange-900 dark:bg-orange-950/30 dark:text-orange-400">
+            Chưa cấu hình — email chưa hoạt động
+          </div>
+        )}
+
+        <div className="space-y-3 border-t pt-3">
+          <p className="text-sm font-medium">
+            {status?.configured ? "Cập nhật cấu hình" : "Thiết lập Resend"}
+          </p>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="resend-api-key">Resend API Key</Label>
+            <div className="flex gap-2">
+              <Input
+                id="resend-api-key"
+                type={showKey ? "text" : "password"}
+                placeholder="re_xxxxxxxxxxxx"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                className="font-mono"
+              />
+              <Button variant="outline" size="sm" onClick={() => setShowKey((v) => !v)} className="shrink-0">
+                {showKey ? "Ẩn" : "Hiện"}
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="resend-from-name">Tên người gửi</Label>
+            <Input
+              id="resend-from-name"
+              placeholder="TAGA Tuyển Dụng"
+              value={fromName}
+              onChange={(e) => setFromName(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="resend-from-email">Email gửi đi</Label>
+            <Input
+              id="resend-from-email"
+              type="email"
+              placeholder="tuyen-dung@yourdomain.com"
+              value={fromEmail}
+              onChange={(e) => setFromEmail(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Domain phải được verify trên Resend. Trong giai đoạn test dùng{" "}
+              <span className="font-mono">onboarding@resend.dev</span> (Resend cung cấp sẵn).
+            </p>
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || !canSave}>
+              {saveMutation.isPending ? "Đang lưu..." : "Lưu cấu hình"}
+            </Button>
+            {status?.configured && (
+              <Button
+                variant="outline"
+                onClick={() => testMutation.mutate()}
+                disabled={testMutation.isPending}
+              >
+                {testMutation.isPending ? "Đang gửi..." : "Gửi email thử"}
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function SettingsPage() {
   return (
     <div className="h-full space-y-4 overflow-auto p-6">
@@ -238,6 +388,7 @@ export default function SettingsPage() {
       </div>
       <ProfileCard />
       <ChangePasswordCard />
+      <EmailSettingsCard />
       <Suspense>
         <GoogleIntegrationCard />
       </Suspense>

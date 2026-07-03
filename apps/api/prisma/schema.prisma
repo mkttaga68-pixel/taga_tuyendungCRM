@@ -730,3 +730,11 @@ model LandingPageMetricDaily {
   @@unique([landingPageId, date])
   @@map("landing_page_metrics_daily")
 }
+
+model SystemSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}

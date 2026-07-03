@@ -25,6 +25,7 @@ import { AdSpendModule } from "./ad-spend/ad-spend.module";
 import { ReportsModule } from "./reports/reports.module";
 import { EmailTemplatesModule } from "./email-templates/email-templates.module";
 import { NotificationsModule } from "./notifications/notifications.module";
+import { EmailSettingsModule } from "./email-settings/email-settings.module";
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { NotificationsModule } from "./notifications/notifications.module";
     ReportsModule,
     EmailTemplatesModule,
     NotificationsModule,
+    EmailSettingsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
