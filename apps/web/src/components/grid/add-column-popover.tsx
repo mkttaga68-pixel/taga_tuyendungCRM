@@ -66,6 +66,14 @@ interface AddColumnPopoverProps {
 
 type LucideIcon = React.ComponentType<{ className?: string }>;
 
+const CHOICE_COLORS = [
+  "#EF4444", "#F97316", "#EAB308", "#22C55E",
+  "#14B8A6", "#3B82F6", "#8B5CF6", "#EC4899",
+  "#6B7280", "#D97706", "#10B981", "#6366F1",
+];
+
+type SelectChoice = { label: string; color: string };
+
 const FIELD_TYPE_ICON: Record<string, LucideIcon> = {
   TEXT: AlignLeft,
   LONG_TEXT: AlignJustify,
@@ -141,7 +149,7 @@ export function AddColumnPopover({ existingFields, onCreate, open: controlledOpe
   const [targetFieldKey, setTargetFieldKey] = useState("");
   const [aggregation, setAggregation] = useState<RollupAggregation>("SUM");
   const [expression, setExpression] = useState("");
-  const [selectOptions, setSelectOptions] = useState<string[]>([]);
+  const [selectOptions, setSelectOptions] = useState<SelectChoice[]>([]);
   const [selectOptionInput, setSelectOptionInput] = useState("");
 
   const relationFields = existingFields.filter((f) => f.fieldType === "RELATION");
@@ -161,8 +169,9 @@ export function AddColumnPopover({ existingFields, onCreate, open: controlledOpe
 
   function addSelectOption() {
     const v = selectOptionInput.trim();
-    if (!v || selectOptions.includes(v)) return;
-    setSelectOptions((o) => [...o, v]);
+    if (!v || selectOptions.some((o) => o.label === v)) return;
+    const color = CHOICE_COLORS[selectOptions.length % CHOICE_COLORS.length];
+    setSelectOptions((o) => [...o, { label: v, color }]);
     setSelectOptionInput("");
   }
 
@@ -177,7 +186,13 @@ export function AddColumnPopover({ existingFields, onCreate, open: controlledOpe
 
     let options: Record<string, unknown> | undefined;
     if (fieldType === "SELECT" || fieldType === "MULTI_SELECT") {
-      options = { choices: selectOptions };
+      options = {
+        choices: selectOptions.map((o) => ({
+          value: o.label.toLowerCase().trim().replace(/\s+/g, "_"),
+          label: o.label,
+          color: o.color,
+        })),
+      };
     } else if (fieldType === "RELATION") {
       options = { toTableKey: "candidates" };
     } else if (fieldType === "LOOKUP") {
@@ -302,21 +317,48 @@ export function AddColumnPopover({ existingFields, onCreate, open: controlledOpe
                   </button>
                 </div>
                 {selectOptions.length > 0 && (
-                  <div className="flex flex-wrap gap-1 pt-0.5">
-                    {selectOptions.map((opt) => (
-                      <span
-                        key={opt}
-                        className="flex items-center gap-0.5 rounded-full bg-muted px-2 py-0.5 text-xs"
-                      >
-                        {opt}
+                  <div className="flex flex-col gap-1 pt-0.5">
+                    {selectOptions.map((opt, idx) => (
+                      <div key={idx} className="flex items-center gap-1.5">
+                        {/* color picker — click để cycle qua bảng màu */}
+                        <div className="relative shrink-0">
+                          <button
+                            type="button"
+                            title="Đổi màu"
+                            onClick={() =>
+                              setSelectOptions((prev) =>
+                                prev.map((o, i) =>
+                                  i === idx
+                                    ? {
+                                        ...o,
+                                        color:
+                                          CHOICE_COLORS[
+                                            (CHOICE_COLORS.indexOf(o.color) + 1) %
+                                              CHOICE_COLORS.length
+                                          ],
+                                      }
+                                    : o,
+                                ),
+                              )
+                            }
+                            className="size-4 rounded-full border border-white/50 shadow-sm"
+                            style={{ backgroundColor: opt.color }}
+                          />
+                        </div>
+                        <span
+                          className="flex-1 truncate rounded-md px-2 py-0.5 text-xs font-medium"
+                          style={{ backgroundColor: `${opt.color}26`, color: opt.color }}
+                        >
+                          {opt.label}
+                        </span>
                         <button
                           type="button"
-                          onClick={() => setSelectOptions((o) => o.filter((x) => x !== opt))}
-                          className="ml-0.5 text-muted-foreground hover:text-destructive"
+                          onClick={() => setSelectOptions((o) => o.filter((_, i) => i !== idx))}
+                          className="shrink-0 text-muted-foreground hover:text-destructive"
                         >
-                          <X className="size-2.5" />
+                          <X className="size-3" />
                         </button>
-                      </span>
+                      </div>
                     ))}
                   </div>
                 )}

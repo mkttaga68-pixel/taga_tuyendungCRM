@@ -151,14 +151,10 @@ export function ColumnHeader({ field, width, onRename, onToggleHidden, onDelete,
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={onInsertLeft}>Thêm trường bên trái</DropdownMenuItem>
           <DropdownMenuItem onClick={onInsertRight}>Thêm trường bên phải</DropdownMenuItem>
-          {!field.isSystem && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onClick={onDelete}>
-                Xoá trường
-              </DropdownMenuItem>
-            </>
-          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant="destructive" onClick={onDelete}>
+            Xoá trường
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 

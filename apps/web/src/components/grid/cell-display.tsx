@@ -61,12 +61,14 @@ export function CellDisplay({ candidate, field }: { candidate: CandidateDto; fie
       return choice ? <Pill label={choice.label} color={choice.color} /> : <span>{String(value)}</span>;
     }
     case "MULTI_SELECT": {
+      const choices = (field.options?.choices as SelectChoice[] | undefined) ?? [];
       const values = Array.isArray(value) ? (value as string[]) : [];
       return (
         <div className="flex flex-wrap gap-1">
-          {values.map((v) => (
-            <Pill key={v} label={v} color="#6366F1" />
-          ))}
+          {values.map((v) => {
+            const choice = choices.find((c) => c.value === v || c.label === v);
+            return <Pill key={v} label={v} color={choice?.color ?? "#6366F1"} />;
+          })}
         </div>
       );
     }
