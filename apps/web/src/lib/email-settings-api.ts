@@ -24,8 +24,9 @@ export function saveEmailSettings(input: SaveEmailSettingsInput) {
   });
 }
 
-export function sendTestEmail() {
+export function sendTestEmail(to: string) {
   return apiRequest<{ success: boolean; sentTo: string }>("/settings/email/test", {
     method: "POST",
+    body: JSON.stringify({ to }),
   });
 }

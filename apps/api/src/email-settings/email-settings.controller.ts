@@ -16,6 +16,11 @@ const saveEmailSettingsSchema = z.object({
 });
 type SaveEmailSettingsInput = z.infer<typeof saveEmailSettingsSchema>;
 
+const sendTestEmailSchema = z.object({
+  to: z.string().email("Email nhận không hợp lệ"),
+});
+type SendTestEmailInput = z.infer<typeof sendTestEmailSchema>;
+
 @Controller("settings/email")
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles("ADMIN")
@@ -39,12 +44,15 @@ export class EmailSettingsController {
   }
 
   @Post("test")
-  async sendTest(@CurrentUser() user: AccessTokenPayload) {
+  async sendTest(
+    @CurrentUser() _user: AccessTokenPayload,
+    @Body(new ZodValidationPipe(sendTestEmailSchema)) body: SendTestEmailInput,
+  ) {
     await this.resendService.send({
-      to: user.email,
+      to: body.to,
       subject: "Test email từ TAGA CRM",
       html: `<p>Email thử nghiệm gửi thành công từ <strong>TAGA CRM</strong>.</p><p>Nếu bạn nhận được email này, Resend đã được cấu hình đúng.</p>`,
     });
-    return { success: true, sentTo: user.email };
+    return { success: true, sentTo: body.to };
   }
 }

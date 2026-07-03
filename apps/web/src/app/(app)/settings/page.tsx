@@ -245,6 +245,7 @@ function EmailSettingsCard() {
   const [fromEmail, setFromEmail] = useState("");
   const [fromName, setFromName] = useState("");
   const [showKey, setShowKey] = useState(false);
+  const [testTo, setTestTo] = useState("");
 
   useEffect(() => {
     if (statusQuery.data) {
@@ -267,7 +268,7 @@ function EmailSettingsCard() {
   });
 
   const testMutation = useMutation({
-    mutationFn: sendTestEmail,
+    mutationFn: () => sendTestEmail(testTo),
     onSuccess: (r) => toast.success(`Đã gửi email thử đến ${r.sentTo}`),
     onError: (error) => {
       toast.error(error instanceof ApiError ? error.message : "Gửi thử thất bại");
@@ -276,6 +277,7 @@ function EmailSettingsCard() {
 
   const status = statusQuery.data;
   const canSave = apiKey.trim().length > 0 && fromEmail.trim().length > 0 && fromName.trim().length > 0;
+  const canTest = status?.configured === true && testTo.trim().length > 0;
 
   return (
     <Card className="max-w-xl">
@@ -363,17 +365,30 @@ function EmailSettingsCard() {
             <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || !canSave}>
               {saveMutation.isPending ? "Đang lưu..." : "Lưu cấu hình"}
             </Button>
-            {status?.configured && (
+          </div>
+        </div>
+
+        {status?.configured && (
+          <div className="space-y-3 border-t pt-3">
+            <p className="text-sm font-medium">Gửi email thử</p>
+            <div className="flex gap-2">
+              <Input
+                type="email"
+                placeholder="email@example.com"
+                value={testTo}
+                onChange={(e) => setTestTo(e.target.value)}
+              />
               <Button
                 variant="outline"
                 onClick={() => testMutation.mutate()}
-                disabled={testMutation.isPending}
+                disabled={testMutation.isPending || !canTest}
+                className="shrink-0"
               >
-                {testMutation.isPending ? "Đang gửi..." : "Gửi email thử"}
+                {testMutation.isPending ? "Đang gửi..." : "Gửi thử"}
               </Button>
-            )}
+            </div>
           </div>
-        </div>
+        )}
       </CardContent>
     </Card>
   );
