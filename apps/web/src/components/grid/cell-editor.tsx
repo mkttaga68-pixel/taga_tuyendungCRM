@@ -7,13 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import type { PipelineStageDto } from "@/lib/pipeline-stages-api";
 import type { UserLookupDto } from "@/lib/users-lookup-api";
 import { getCellValue, getRelationId } from "./candidate-field-value";
@@ -122,70 +115,109 @@ export function CellEditor({
   }
 
   if (field.fieldKey === "statusId") {
+    const currentStage = pipelineStages.find((s) => s.id === getRelationId(candidate, "statusId"));
     return (
-      <Select
-        defaultValue={getRelationId(candidate, "statusId") ?? undefined}
-        onValueChange={onCommit}
-        onOpenChange={(open) => !open && onCancel()}
-        open
-      >
-        <SelectTrigger className="h-8 w-full border-0 shadow-none">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
+      <Popover defaultOpen onOpenChange={(open) => !open && onCancel()}>
+        <PopoverTrigger asChild>
+          <button type="button" className="h-8 w-full truncate px-2 text-left text-sm">
+            {currentStage?.label ?? <span className="text-muted-foreground">Chọn...</span>}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-48 p-1" align="start">
           {pipelineStages.map((stage) => (
-            <SelectItem key={stage.id} value={stage.id}>
+            <button
+              key={stage.id}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => { onCommit(stage.id); onCancel(); }}
+              className="flex w-full items-center rounded px-2 py-1.5 text-sm hover:bg-muted/60"
+            >
               {stage.label}
-            </SelectItem>
+            </button>
           ))}
-        </SelectContent>
-      </Select>
+        </PopoverContent>
+      </Popover>
     );
   }
 
   if (field.fieldKey === "recruiterId") {
+    const currentUser2 = users.find((u) => u.id === getRelationId(candidate, "recruiterId"));
     return (
-      <Select
-        defaultValue={getRelationId(candidate, "recruiterId") ?? "__none__"}
-        onValueChange={(v) => onCommit(v === "__none__" ? null : v)}
-        onOpenChange={(open) => !open && onCancel()}
-        open
-      >
-        <SelectTrigger className="h-8 w-full border-0 shadow-none">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="__none__">— Không gán —</SelectItem>
+      <Popover defaultOpen onOpenChange={(open) => !open && onCancel()}>
+        <PopoverTrigger asChild>
+          <button type="button" className="h-8 w-full truncate px-2 text-left text-sm">
+            {currentUser2?.fullName ?? <span className="text-muted-foreground">— Không gán —</span>}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-48 p-1" align="start">
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => { onCommit(null); onCancel(); }}
+            className="flex w-full items-center rounded px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted/60"
+          >
+            — Không gán —
+          </button>
           {users.map((u) => (
-            <SelectItem key={u.id} value={u.id}>
+            <button
+              key={u.id}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => { onCommit(u.id); onCancel(); }}
+              className="flex w-full items-center rounded px-2 py-1.5 text-sm hover:bg-muted/60"
+            >
               {u.fullName}
-            </SelectItem>
+            </button>
           ))}
-        </SelectContent>
-      </Select>
+        </PopoverContent>
+      </Popover>
     );
   }
 
   if (field.fieldType === "SELECT") {
     const choices = (field.options?.choices as SelectChoice[] | undefined) ?? [];
+    const currentChoice = choices.find((c) => c.value === value);
     return (
-      <Select
-        defaultValue={(value as string) ?? undefined}
-        onValueChange={onCommit}
-        onOpenChange={(open) => !open && onCancel()}
-        open
-      >
-        <SelectTrigger className="h-8 w-full border-0 shadow-none">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
+      <Popover defaultOpen onOpenChange={(open) => !open && onCancel()}>
+        <PopoverTrigger asChild>
+          <button type="button" className="h-8 w-full truncate px-2 text-left text-sm">
+            {currentChoice ? (
+              <span
+                className="rounded px-1.5 py-0.5 text-xs font-medium"
+                style={{
+                  backgroundColor: `${currentChoice.color ?? "#6B7280"}26`,
+                  color: currentChoice.color ?? "#6B7280",
+                }}
+              >
+                {currentChoice.label}
+              </span>
+            ) : (
+              <span className="text-muted-foreground">Chọn...</span>
+            )}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-48 p-1" align="start">
           {choices.map((choice) => (
-            <SelectItem key={choice.value} value={choice.value}>
-              {choice.label}
-            </SelectItem>
+            <button
+              key={choice.value}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => { onCommit(choice.value); onCancel(); }}
+              className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted/60"
+            >
+              <span
+                className="rounded px-1.5 py-0.5 text-xs font-medium"
+                style={{
+                  backgroundColor: `${choice.color ?? "#6B7280"}26`,
+                  color: choice.color ?? "#6B7280",
+                }}
+              >
+                {choice.label}
+              </span>
+            </button>
           ))}
-        </SelectContent>
-      </Select>
+        </PopoverContent>
+      </Popover>
     );
   }
 
