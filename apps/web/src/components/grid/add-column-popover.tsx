@@ -27,6 +27,7 @@ import {
   ListOrdered,
   User,
   Plus,
+  X,
 } from "lucide-react";
 import {
   COMPUTED_FIELD_TYPES,
@@ -132,6 +133,8 @@ export function AddColumnPopover({ existingFields, onCreate }: AddColumnPopoverP
   const [targetFieldKey, setTargetFieldKey] = useState("");
   const [aggregation, setAggregation] = useState<RollupAggregation>("SUM");
   const [expression, setExpression] = useState("");
+  const [selectOptions, setSelectOptions] = useState<string[]>([]);
+  const [selectOptionInput, setSelectOptionInput] = useState("");
 
   const relationFields = existingFields.filter((f) => f.fieldType === "RELATION");
   const lookupableFields = existingFields.filter((f) => !COMPUTED_FIELD_TYPES.has(f.fieldType));
@@ -143,7 +146,16 @@ export function AddColumnPopover({ existingFields, onCreate }: AddColumnPopoverP
     setTargetFieldKey("");
     setAggregation("SUM");
     setExpression("");
+    setSelectOptions([]);
+    setSelectOptionInput("");
     setStep("pick");
+  }
+
+  function addSelectOption() {
+    const v = selectOptionInput.trim();
+    if (!v || selectOptions.includes(v)) return;
+    setSelectOptions((o) => [...o, v]);
+    setSelectOptionInput("");
   }
 
   function pickType(type: CreatableType) {
@@ -156,7 +168,9 @@ export function AddColumnPopover({ existingFields, onCreate }: AddColumnPopoverP
     if (!trimmed) return;
 
     let options: Record<string, unknown> | undefined;
-    if (fieldType === "RELATION") {
+    if (fieldType === "SELECT" || fieldType === "MULTI_SELECT") {
+      options = { choices: selectOptions };
+    } else if (fieldType === "RELATION") {
       options = { toTableKey: "candidates" };
     } else if (fieldType === "LOOKUP") {
       if (!relationFieldKey || !targetFieldKey) return;
@@ -253,6 +267,54 @@ export function AddColumnPopover({ existingFields, onCreate }: AddColumnPopoverP
             </div>
 
             {/* Config nâng cao theo từng type */}
+            {(fieldType === "SELECT" || fieldType === "MULTI_SELECT") && (
+              <div className="space-y-1.5">
+                <Label>
+                  Các lựa chọn
+                  {selectOptions.length > 0 && (
+                    <span className="ml-1 text-xs text-muted-foreground">({selectOptions.length})</span>
+                  )}
+                </Label>
+                <div className="flex gap-1">
+                  <Input
+                    className="h-7 text-xs"
+                    placeholder="Nhập lựa chọn..."
+                    value={selectOptionInput}
+                    onChange={(e) => setSelectOptionInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") { e.preventDefault(); addSelectOption(); }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={addSelectOption}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border bg-muted hover:bg-muted/60"
+                  >
+                    <Plus className="size-3.5" />
+                  </button>
+                </div>
+                {selectOptions.length > 0 && (
+                  <div className="flex flex-wrap gap-1 pt-0.5">
+                    {selectOptions.map((opt) => (
+                      <span
+                        key={opt}
+                        className="flex items-center gap-0.5 rounded-full bg-muted px-2 py-0.5 text-xs"
+                      >
+                        {opt}
+                        <button
+                          type="button"
+                          onClick={() => setSelectOptions((o) => o.filter((x) => x !== opt))}
+                          className="ml-0.5 text-muted-foreground hover:text-destructive"
+                        >
+                          <X className="size-2.5" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {fieldType === "RELATION" && (
               <p className="text-xs text-muted-foreground">
                 Liên kết tới bản ghi trong bảng khác — sửa liên kết bằng cách bấm vào ô.

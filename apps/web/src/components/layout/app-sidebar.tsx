@@ -35,6 +35,7 @@ import {
   listCustomTables,
   updateCustomTable,
 } from "@/lib/custom-tables-api";
+import { getUiSettings, updateUiSettings } from "@/lib/settings-api";
 import { ApiError } from "@/lib/api-client";
 import type { Role } from "@taga-crm/shared";
 
@@ -51,7 +52,7 @@ export function AppSidebar() {
   const [createOpen, setCreateOpen] = useState(false);
   const [newTableName, setNewTableName] = useState("");
 
-  // Rename inline state
+  // Rename inline state — dùng chung cho "candidates" (built-in) và custom tables
   const [renamingKey, setRenamingKey] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
 
@@ -59,6 +60,25 @@ export function AppSidebar() {
     queryKey: ["custom-tables"],
     queryFn: listCustomTables,
     staleTime: 30_000,
+  });
+
+  const uiSettingsQuery = useQuery({
+    queryKey: ["ui-settings"],
+    queryFn: getUiSettings,
+    staleTime: 60_000,
+  });
+  const candidatesTableName = uiSettingsQuery.data?.candidatesTableName ?? "Ứng viên";
+
+  const renameCandidatesMutation = useMutation({
+    mutationFn: (name: string) => updateUiSettings({ candidatesTableName: name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ui-settings"] });
+      setRenamingKey(null);
+      toast.success("Đã đổi tên bảng");
+    },
+    onError: (err) => {
+      toast.error(err instanceof ApiError ? err.message : "Không thể đổi tên");
+    },
   });
 
   const createMutation = useMutation({
@@ -106,7 +126,11 @@ export function AppSidebar() {
   function commitRename(tableKey: string) {
     const trimmed = renameValue.trim();
     if (!trimmed) { setRenamingKey(null); return; }
-    renameMutation.mutate({ tableKey, name: trimmed });
+    if (tableKey === "candidates") {
+      renameCandidatesMutation.mutate(trimmed);
+    } else {
+      renameMutation.mutate({ tableKey, name: trimmed });
+    }
   }
 
   const items = NAV_ITEMS.filter(
@@ -153,18 +177,48 @@ export function AppSidebar() {
               {/* Sub-items */}
               {tablesOpen && (
                 <div className="group-data-[collapsible=icon]:hidden ml-3 border-l pl-2 space-y-0.5">
-                  {/* Bảng mặc định: Ứng viên */}
-                  <Link
-                    href="/candidates"
-                    className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-sm transition-colors ${
-                      pathname === "/candidates"
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                        : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
-                    }`}
-                  >
-                    <Table2 className="size-3.5 shrink-0" />
-                    Ứng viên
-                  </Link>
+                  {/* Bảng mặc định: Ứng viên (có thể đổi tên) */}
+                  <div className="group/item flex items-center gap-0.5">
+                    {renamingKey === "candidates" ? (
+                      <div className="flex flex-1 items-center gap-1 px-1">
+                        <Input
+                          className="h-6 py-0 text-xs"
+                          value={renameValue}
+                          autoFocus
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") commitRename("candidates");
+                            if (e.key === "Escape") setRenamingKey(null);
+                          }}
+                          onBlur={() => commitRename("candidates")}
+                        />
+                      </div>
+                    ) : (
+                      <Link
+                        href="/candidates"
+                        className={`flex flex-1 items-center gap-1.5 rounded-md px-2 py-1 text-sm transition-colors ${
+                          pathname === "/candidates"
+                            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                            : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+                        }`}
+                      >
+                        <Table2 className="size-3.5 shrink-0" />
+                        <span className="truncate">{candidatesTableName}</span>
+                      </Link>
+                    )}
+                    {canManage && renamingKey !== "candidates" && (
+                      <div className="hidden group-hover/item:flex items-center gap-0.5">
+                        <button
+                          type="button"
+                          title="Đổi tên"
+                          className="size-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground"
+                          onClick={() => startRename("candidates", candidatesTableName)}
+                        >
+                          <Pencil className="size-3" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
 
                   {/* Custom tables */}
                   {customTables.map((t) => (
