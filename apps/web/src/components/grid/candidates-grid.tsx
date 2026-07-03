@@ -802,6 +802,7 @@ export function CandidatesGrid() {
           onInsertLeft={(fieldId) => handleInsertField(fieldId, "left")}
           onInsertRight={(fieldId) => handleInsertField(fieldId, "right")}
           onResizeEnd={(fieldId, width) => updateFieldMutation.mutate({ id: fieldId, input: { width } })}
+          onEdit={(fieldId, input) => updateFieldMutation.mutate({ id: fieldId, input })}
           onCreateField={(input) => {
             pendingSubmitRef.current = true;
             createFieldMutation.mutate(input);

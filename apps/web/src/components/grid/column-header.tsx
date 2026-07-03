@@ -16,7 +16,7 @@ import {
   User,
   type LucideIcon,
 } from "lucide-react";
-import type { FieldDefinitionDto, FieldType } from "@taga-crm/shared";
+import type { FieldDefinitionDto, FieldType, UpdateFieldDefinitionInput } from "@taga-crm/shared";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import {
@@ -26,6 +26,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { EditFieldDialog } from "./edit-field-dialog";
 
 const FIELD_TYPE_ICONS: Partial<Record<FieldType, LucideIcon>> = {
   TEXT: Type,
@@ -54,15 +55,17 @@ interface ColumnHeaderProps {
   onInsertLeft: () => void;
   onInsertRight: () => void;
   onResizeEnd: (width: number) => void;
+  onEdit: (input: UpdateFieldDefinitionInput) => void;
 }
 
-export function ColumnHeader({ field, width, onRename, onToggleHidden, onDelete, onInsertLeft, onInsertRight, onResizeEnd }: ColumnHeaderProps) {
+export function ColumnHeader({ field, width, onRename, onToggleHidden, onDelete, onInsertLeft, onInsertRight, onResizeEnd, onEdit }: ColumnHeaderProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: field.id,
   });
   const [renaming, setRenaming] = useState(false);
   const [label, setLabel] = useState(field.label);
   const [liveWidth, setLiveWidth] = useState<number | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
   const dragStartX = useRef(0);
   const dragStartWidth = useRef(width);
 
@@ -145,6 +148,7 @@ export function ColumnHeader({ field, width, onRename, onToggleHidden, onDelete,
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
           <DropdownMenuItem onClick={() => setRenaming(true)}>Đổi tên trường</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setEditOpen(true)}>Chỉnh sửa trường</DropdownMenuItem>
           <DropdownMenuItem onClick={onToggleHidden}>
             {field.isHidden ? "Hiện trường" : "Ẩn trường"}
           </DropdownMenuItem>
@@ -157,6 +161,13 @@ export function ColumnHeader({ field, width, onRename, onToggleHidden, onDelete,
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <EditFieldDialog
+        field={field}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        onSave={onEdit}
+      />
 
       <div
         onPointerDown={startResize}

@@ -9,7 +9,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy } from "@dnd-kit/sortable";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CREATABLE_CUSTOM_FIELD_TYPES, type FieldDefinitionDto } from "@taga-crm/shared";
+import { CREATABLE_CUSTOM_FIELD_TYPES, type FieldDefinitionDto, type UpdateFieldDefinitionInput } from "@taga-crm/shared";
 import { ColumnHeader } from "./column-header";
 import { AddColumnPopover } from "./add-column-popover";
 import { ROW_NUMBER_COL_WIDTH, CHECKBOX_COL_WIDTH } from "./grid-constants";
@@ -25,6 +25,7 @@ interface GridHeaderRowProps {
   onInsertLeft: (fieldId: string) => void;
   onInsertRight: (fieldId: string) => void;
   onResizeEnd: (fieldId: string, width: number) => void;
+  onEdit: (fieldId: string, input: UpdateFieldDefinitionInput) => void;
   onCreateField: (input: {
     label: string;
     fieldKey: string;
@@ -49,6 +50,7 @@ export function GridHeaderRow({
   onCreateField,
   addColumnOpen,
   onAddColumnOpenChange,
+  onEdit,
 }: GridHeaderRowProps) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
@@ -87,6 +89,7 @@ export function GridHeaderRow({
               onInsertLeft={() => onInsertLeft(field.id)}
               onInsertRight={() => onInsertRight(field.id)}
               onResizeEnd={(w) => onResizeEnd(field.id, w)}
+              onEdit={(input) => onEdit(field.id, input)}
             />
           ))}
         </SortableContext>
