@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Trash2 } from "lucide-react";
 import {
   AUTOMATION_TRIGGER_TYPE_LABELS,
   AUTOMATION_TRIGGER_TYPES,
@@ -36,6 +37,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -43,7 +54,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { createWorkflow, listWorkflows, updateWorkflow } from "@/lib/automation-api";
+import { createWorkflow, deleteWorkflow, listWorkflows, updateWorkflow } from "@/lib/automation-api";
 import { listCustomTables } from "@/lib/custom-tables-api";
 import { getUiSettings } from "@/lib/settings-api";
 import { ApiError } from "@/lib/api-client";
@@ -61,6 +72,7 @@ export default function AutomationPage() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [selectedTableKey, setSelectedTableKey] = useState("candidates");
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   const query = useQuery({ queryKey: ["automation-workflows"], queryFn: listWorkflows });
   const tablesQuery = useQuery({ queryKey: ["custom-tables"], queryFn: listCustomTables, staleTime: 30_000 });
@@ -101,6 +113,18 @@ export default function AutomationPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["automation-workflows"] }),
     onError: (error) => {
       toast.error(error instanceof ApiError ? error.message : "Không thể đổi trạng thái");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteWorkflow(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["automation-workflows"] });
+      toast.success("Đã xoá automation");
+      setDeleteTarget(null);
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiError ? error.message : "Không thể xoá automation");
     },
   });
 
@@ -188,6 +212,7 @@ export default function AutomationPage() {
               <TableHead>Trigger</TableHead>
               <TableHead>Lần chạy gần nhất</TableHead>
               <TableHead>Bật/Tắt</TableHead>
+              <TableHead className="w-12" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -218,11 +243,21 @@ export default function AutomationPage() {
                     }
                   />
                 </TableCell>
+                <TableCell>
+                  <button
+                    type="button"
+                    title="Xoá automation"
+                    onClick={() => setDeleteTarget({ id: wf.id, name: wf.name })}
+                    className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </TableCell>
               </TableRow>
             ))}
             {query.data?.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
+                <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
                   Chưa có Automation nào.
                 </TableCell>
               </TableRow>
@@ -230,6 +265,27 @@ export default function AutomationPage() {
           </TableBody>
         </Table>
       </div>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xoá automation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Automation <span className="font-medium text-foreground">&ldquo;{deleteTarget?.name}&rdquo;</span> sẽ bị xoá vĩnh viễn cùng toàn bộ lịch sử chạy. Không thể hoàn tác.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Huỷ</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Đang xoá..." : "Xoá"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
