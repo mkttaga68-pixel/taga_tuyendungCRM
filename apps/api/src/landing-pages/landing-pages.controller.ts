@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import {
   createLandingPageFormSchema,
   createLandingPageSchema,
@@ -52,6 +52,13 @@ export class LandingPagesController {
     @Body(new ZodValidationPipe(updateLandingPageSchema)) body: UpdateLandingPageInput,
   ) {
     return this.landingPagesService.update(id, body);
+  }
+
+  @Delete(":id")
+  @Roles("ADMIN", "HR_MANAGER")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(@Param("id") id: string) {
+    return this.landingPagesService.remove(id);
   }
 
   @Post(":id/regenerate-api-key")

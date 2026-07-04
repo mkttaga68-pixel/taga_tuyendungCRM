@@ -98,6 +98,14 @@ export class LandingPagesService {
     return this.toDto(updated);
   }
 
+  async remove(id: string): Promise<void> {
+    await this.getOrThrow(id);
+    await this.prisma.landingPage.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+  }
+
   async regenerateApiKey(id: string): Promise<LandingPageWithApiKeyDto> {
     const row = await this.getOrThrow(id);
     const rawApiKey = generateOpaqueToken();

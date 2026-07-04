@@ -32,6 +32,10 @@ export function updateLandingPage(id: string, input: UpdateLandingPageInput) {
   });
 }
 
+export function deleteLandingPage(id: string) {
+  return apiRequest<void>(`/landing-pages/${id}`, { method: "DELETE" });
+}
+
 export function regenerateApiKey(id: string) {
   return apiRequest<LandingPageWithApiKeyDto>(`/landing-pages/${id}/regenerate-api-key`, {
     method: "POST",

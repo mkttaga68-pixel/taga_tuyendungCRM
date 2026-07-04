@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   createLandingPageSchema,
@@ -31,6 +32,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -38,7 +49,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { createLandingPage, listLandingPages } from "@/lib/landing-pages-api";
+import { createLandingPage, deleteLandingPage, listLandingPages } from "@/lib/landing-pages-api";
 import { useAuthStore } from "@/stores/auth-store";
 import { ApiError } from "@/lib/api-client";
 
@@ -67,12 +78,23 @@ export default function LandingPagesPage() {
   const [open, setOpen] = useState(false);
   const [createdApiKey, setCreatedApiKey] = useState<string | null>(null);
   const [slugTouched, setSlugTouched] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   const query = useQuery({ queryKey: ["landing-pages"], queryFn: listLandingPages });
 
   const form = useForm<CreateLandingPageInput>({
     resolver: zodResolver(createLandingPageSchema),
     defaultValues: { name: "", slug: "", url: "", domain: "", description: "", status: "DRAFT" },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteLandingPage(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["landing-pages"] });
+      toast.success(`Đã xóa Landing Page "${deleteTarget?.name}"`);
+      setDeleteTarget(null);
+    },
+    onError: () => toast.error("Không thể xóa Landing Page"),
   });
 
   const createMutation = useMutation({
@@ -209,6 +231,7 @@ export default function LandingPagesPage() {
               <TableHead className="text-right">Submissions</TableHead>
               <TableHead className="text-right">Ứng viên</TableHead>
               <TableHead>Người tạo</TableHead>
+              {canManage && <TableHead className="w-12" />}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -228,11 +251,23 @@ export default function LandingPagesPage() {
                 <TableCell className="text-right">{lp.submissionCount}</TableCell>
                 <TableCell className="text-right">{lp.candidateCount}</TableCell>
                 <TableCell className="text-muted-foreground">{lp.creator?.fullName ?? "—"}</TableCell>
+                {canManage && (
+                  <TableCell>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      onClick={() => setDeleteTarget({ id: lp.id, name: lp.name })}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
             {query.data?.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                <TableCell colSpan={canManage ? 7 : 6} className="py-8 text-center text-muted-foreground">
                   Chưa có Landing Page nào.
                 </TableCell>
               </TableRow>
@@ -240,6 +275,28 @@ export default function LandingPagesPage() {
           </TableBody>
         </Table>
       </div>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xóa Landing Page?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Landing Page <strong>&quot;{deleteTarget?.name}&quot;</strong> sẽ bị xóa. Dữ liệu
+              submissions và ứng viên liên quan vẫn được giữ lại.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Đang xóa..." : "Xóa"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
