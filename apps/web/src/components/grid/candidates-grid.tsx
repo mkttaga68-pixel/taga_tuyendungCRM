@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  type InfiniteData,
   keepPreviousData,
   useInfiniteQuery,
   useMutation,
@@ -81,6 +82,34 @@ const FIELD_DEFS_QUERY_KEY = ["field-definitions", "candidates"] as const;
 const VIEWS_QUERY_KEY = ["views", "candidates"] as const;
 const TABLE_KEY = "candidates";
 const VIEW_SAVE_DEBOUNCE_MS = 800;
+
+type CandidatesInfiniteData = InfiniteData<import("@taga-crm/shared").CandidateListResponse>;
+
+function buildOptimisticPatch(
+  candidate: import("@taga-crm/shared").CandidateDto,
+  fieldUpdates: Record<string, unknown>,
+  pipelineStages: import("@/lib/pipeline-stages-api").PipelineStageDto[],
+  users: import("@/lib/users-lookup-api").UserLookupDto[],
+  fieldDefs: import("@taga-crm/shared").FieldDefinitionDto[],
+): import("@taga-crm/shared").CandidateDto {
+  let updated = { ...candidate };
+  for (const [fieldKey, value] of Object.entries(fieldUpdates)) {
+    if (fieldKey === "statusId") {
+      const stage = pipelineStages.find((s) => s.id === value);
+      if (stage) updated = { ...updated, status: { id: stage.id, key: stage.key, label: stage.label, color: stage.color } };
+    } else if (fieldKey === "recruiterId") {
+      updated = { ...updated, recruiter: value === null ? null : (() => { const u = users.find((u) => u.id === value); return u ? { id: u.id, fullName: u.fullName } : updated.recruiter; })() };
+    } else {
+      const def = fieldDefs.find((f) => f.fieldKey === fieldKey);
+      if (def && !def.isSystem) {
+        updated = { ...updated, customFields: { ...updated.customFields, [fieldKey]: value } };
+      } else {
+        updated = { ...updated, [fieldKey]: value } as typeof updated;
+      }
+    }
+  }
+  return updated;
+}
 
 interface DisplayRow {
   kind: "group" | "row";
@@ -316,8 +345,20 @@ export function CandidatesGrid() {
   const updateMutation = useMutation({
     mutationFn: ({ id, fields: f }: { id: string; fields: Record<string, unknown> }) =>
       updateCandidateFields(id, f),
+    onMutate: ({ id, fields: f }) => {
+      const candidate = candidates.find((c) => c.id === id);
+      if (!candidate) return;
+      const snapshots = queryClient.getQueriesData<CandidatesInfiniteData>({ queryKey: CANDIDATES_QUERY_PREFIX });
+      patchCandidateInCache(queryClient, buildOptimisticPatch(candidate, f, pipelineStages, users, fields));
+      return { snapshots };
+    },
     onSuccess: (updated) => patchCandidateInCache(queryClient, updated),
-    onError: (err) => toast.error(err instanceof ApiError ? err.message : "Không lưu được thay đổi"),
+    onError: (err, _vars, context) => {
+      if (context?.snapshots) {
+        for (const [key, data] of context.snapshots) queryClient.setQueryData(key, data);
+      }
+      toast.error(err instanceof ApiError ? err.message : "Không lưu được thay đổi");
+    },
   });
 
   const createMutation = useMutation({
