@@ -75,7 +75,12 @@ export class AuthController {
     if (rawRefreshToken) {
       await this.authService.logout(rawRefreshToken);
     }
-    res.clearCookie(REFRESH_COOKIE_NAME, { path: "/auth" });
+    const isProduction = this.configService.get("NODE_ENV") === "production";
+    res.clearCookie(REFRESH_COOKIE_NAME, {
+      path: "/auth",
+      secure: isProduction,
+      sameSite: isProduction ? "none" : "lax",
+    });
     return { success: true };
   }
 
@@ -106,10 +111,14 @@ export class AuthController {
   }
 
   private setRefreshCookie(res: Response, token: string, maxAgeMs: number) {
+    const isProduction = this.configService.get("NODE_ENV") === "production";
     res.cookie(REFRESH_COOKIE_NAME, token, {
       httpOnly: true,
-      secure: this.configService.get("NODE_ENV") === "production",
-      sameSite: "lax",
+      secure: isProduction,
+      // SameSite: none cho phép gửi cookie trong POST cross-site (cần thiết khi
+      // web và API deploy trên 2 subdomain khác nhau, ví dụ Railway). Chỉ dùng
+      // none trong production vì none bắt buộc kèm Secure: true (HTTPS).
+      sameSite: isProduction ? "none" : "lax",
       path: "/auth",
       maxAge: maxAgeMs,
     });
