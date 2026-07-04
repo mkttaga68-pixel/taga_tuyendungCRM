@@ -41,6 +41,8 @@ async function bootstrap() {
   // CV nộp qua Landing Page gửi base64 trong JSON/urlencoded body — nâng giới
   // hạn mặc định (100kb) lên đủ cho file vài MB.
   app.useBodyParser("json", { limit: "10mb" });
+  // text/plain dùng cho browser fetch() với mode:'no-cors' từ landing page (Cake/Webcake chặn JSON CORS preflight)
+  app.useBodyParser("text", { limit: "10mb", type: "text/plain" });
   app.useBodyParser("urlencoded", { limit: "10mb", extended: true });
 
   const port = process.env.PORT ?? configService.get<string>("API_PORT") ?? "4000";

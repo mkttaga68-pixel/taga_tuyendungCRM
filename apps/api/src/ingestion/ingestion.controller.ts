@@ -26,14 +26,22 @@ export class IngestionController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const contentType = (req.headers["content-type"] ?? "").toString();
-    const wantsJson = contentType.includes("application/json");
+    const wantsJson = contentType.includes("application/json") || contentType.includes("text/plain");
     const meta: IngestionRequestMeta = {
       ip: req.ip ?? null,
       userAgentHeader: req.headers["user-agent"] ?? null,
       refererHeader: req.headers["referer"] ?? null,
     };
 
-    const outcome = await this.ingestionService.handleSubmit(slug, key, body, meta);
+    // text/plain body parser đưa body vào req.body là string — parse JSON thủ công
+    let resolvedBody: Record<string, unknown>;
+    if (typeof body === "string") {
+      try { resolvedBody = JSON.parse(body); } catch { resolvedBody = {}; }
+    } else {
+      resolvedBody = (body as Record<string, unknown>) ?? {};
+    }
+
+    const outcome = await this.ingestionService.handleSubmit(slug, key, resolvedBody, meta);
 
     switch (outcome.kind) {
       case "not_found":
