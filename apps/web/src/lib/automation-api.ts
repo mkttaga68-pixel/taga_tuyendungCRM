@@ -59,3 +59,7 @@ export function testRunWorkflow(id: string, candidateId: string) {
     body: JSON.stringify({ candidateId }),
   });
 }
+
+export function cleanupStaleRuns() {
+  return apiRequest<{ count: number }>("/automation/workflows/cleanup-stale-runs", { method: "POST" });
+}

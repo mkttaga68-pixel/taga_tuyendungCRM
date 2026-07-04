@@ -45,6 +45,21 @@ export class AutomationRunsService {
     };
   }
 
+  /** Đánh dấu FAILED tất cả run đang RUNNING quá threshold (mặc định 15 phút)
+   *  — dùng khi worker crash để UI không hiển thị "Đang chạy" mãi mãi. */
+  async cleanupStaleRuns(thresholdMinutes = 15): Promise<{ count: number }> {
+    const cutoff = new Date(Date.now() - thresholdMinutes * 60_000);
+    const result = await this.prisma.automationRun.updateMany({
+      where: { status: "RUNNING", startedAt: { lt: cutoff } },
+      data: {
+        status: "FAILED",
+        finishedAt: new Date(),
+        errorMessage: `Timeout: worker không phản hồi sau ${thresholdMinutes} phút`,
+      },
+    });
+    return { count: result.count };
+  }
+
   async findOne(id: string): Promise<AutomationRunDto | null> {
     const run = await this.prisma.automationRun.findUnique({
       where: { id },

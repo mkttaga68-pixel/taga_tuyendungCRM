@@ -81,12 +81,28 @@ systemWorker.on("ready", () => {
 systemWorker.on("failed", (job, error) => {
   console.error(`[worker] Job ${job?.id} thất bại:`, error);
 });
+systemWorker.on("error", (err) => {
+  console.error("[worker] System worker Redis error:", err);
+});
 
 automationWorker.on("ready", () => {
   console.log(`[worker] Đã kết nối Redis, đang lắng nghe queue "${AUTOMATION_QUEUE_NAME}"`);
 });
 automationWorker.on("failed", (job, error) => {
   console.error(`[worker] Automation job ${job?.id} thất bại:`, error);
+  // Nếu engine.ts không mark được FAILED (DB lỗi khi rethrow), cố cập nhật ở đây
+  const runId = job?.data?.runId;
+  if (runId) {
+    void prisma.automationRun.update({
+      where: { id: runId },
+      data: { status: "FAILED", finishedAt: new Date(), errorMessage: error.message },
+    }).catch((dbErr: unknown) => {
+      console.error(`[worker] Không thể đánh dấu run ${runId} FAILED:`, dbErr);
+    });
+  }
+});
+automationWorker.on("error", (err) => {
+  console.error("[worker] Automation worker Redis error:", err);
 });
 
 reportsWorker.on("ready", () => {
@@ -94,6 +110,9 @@ reportsWorker.on("ready", () => {
 });
 reportsWorker.on("failed", (job, error) => {
   console.error(`[worker] Reports rollup job ${job?.id} thất bại:`, error);
+});
+reportsWorker.on("error", (err) => {
+  console.error("[worker] Reports worker Redis error:", err);
 });
 
 async function shutdown(signal: string) {

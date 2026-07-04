@@ -124,7 +124,14 @@ export async function runWorkflowJob(
 
     await markRunSuccess(prisma, runId);
   } catch (err) {
-    await markRunFailed(prisma, runId, err instanceof Error ? err.message : String(err));
+    // Nếu markRunFailed cũng lỗi (DB tạm unavailable), rethrow để BullMQ
+    // đánh dấu job failed — failed handler sẽ cố cập nhật DB lần 2.
+    try {
+      await markRunFailed(prisma, runId, err instanceof Error ? err.message : String(err));
+    } catch (dbErr) {
+      console.error(`[engine] Không thể cập nhật run ${runId} thành FAILED:`, dbErr);
+      throw err;
+    }
   }
 }
 

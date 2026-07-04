@@ -97,4 +97,10 @@ export class AutomationController {
   testRun(@Param("id") id: string, @Body(new ZodValidationPipe(testRunSchema)) body: TestRunInput) {
     return this.queueService.triggerManualRun(id, body.candidateId);
   }
+
+  /** Đánh dấu FAILED tất cả run RUNNING > 15 phút — dùng khi worker crash. */
+  @Post("cleanup-stale-runs")
+  cleanupStaleRuns() {
+    return this.runsService.cleanupStaleRuns(15);
+  }
 }

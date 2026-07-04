@@ -1,11 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AUTOMATION_RUN_STATUS_LABELS, type AutomationRunStatus } from "@taga-crm/shared";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { listWorkflowRuns } from "@/lib/automation-api";
+import { cleanupStaleRuns, listWorkflowRuns } from "@/lib/automation-api";
 
 const STATUS_BADGE_VARIANT: Record<AutomationRunStatus, "default" | "secondary" | "destructive"> = {
   RUNNING: "secondary",
@@ -15,6 +16,16 @@ const STATUS_BADGE_VARIANT: Record<AutomationRunStatus, "default" | "secondary" 
 
 export function RunHistoryTab({ workflowId }: { workflowId: string }) {
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  const cleanupMutation = useMutation({
+    mutationFn: cleanupStaleRuns,
+    onSuccess: (data) => {
+      toast.success(`Đã dọn ${data.count} run bị treo — làm mới danh sách`);
+      void queryClient.invalidateQueries({ queryKey: ["automation-workflows", workflowId, "runs"] });
+    },
+    onError: () => toast.error("Không thể dọn dẹp — thử lại sau"),
+  });
 
   const query = useInfiniteQuery({
     queryKey: ["automation-workflows", workflowId, "runs"],
@@ -27,8 +38,24 @@ export function RunHistoryTab({ workflowId }: { workflowId: string }) {
 
   const runs = useMemo(() => query.data?.pages.flatMap((p) => p.items) ?? [], [query.data]);
 
+  const hasStuckRuns = runs.some((r) => r.status === "RUNNING");
+
   return (
     <div className="space-y-2 pt-4">
+      {hasStuckRuns && (
+        <div className="flex items-center justify-between rounded-md border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950 dark:text-yellow-200">
+          <span>Có run đang bị treo "Đang chạy" — có thể worker chưa xử lý.</span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="ml-3 shrink-0"
+            onClick={() => cleanupMutation.mutate()}
+            disabled={cleanupMutation.isPending}
+          >
+            {cleanupMutation.isPending ? "Đang dọn..." : "Dọn runs bị treo"}
+          </Button>
+        </div>
+      )}
       {runs.map((run) => (
         <div key={run.id} className="rounded-md border">
           <button
