@@ -17,7 +17,9 @@ process.on("unhandledRejection", (reason) => {
 });
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // bodyParser: false — tắt toàn bộ body parser mặc định của NestJS để kiểm soát
+  // hoàn toàn thứ tự middleware; text/plain cần được đọc trước json/urlencoded.
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
   const configService = app.get(ConfigService);
 
   app.use(helmet());
@@ -38,15 +40,12 @@ async function bootstrap() {
     });
   });
   app.set("trust proxy", 1);
-  // CV nộp qua Landing Page gửi base64 trong JSON/urlencoded body — nâng giới
-  // hạn mặc định (100kb) lên đủ cho file vài MB.
-  app.useBodyParser("json", { limit: "10mb" });
-  app.useBodyParser("urlencoded", { limit: "10mb", extended: true });
-  // text/plain từ browser fetch() mode:'no-cors' (Webcake/Cake không cho CORS preflight).
-  // Đọc raw stream vì useBodyParser("text") không reliable trên một số môi trường deploy.
+
+  // text/plain phải đứng TRƯỚC json/urlencoded — browser fetch() mode:'no-cors'
+  // từ Webcake gửi Content-Type: text/plain, body là JSON string.
   app.use((req: Request, _res: Response, next: NextFunction) => {
     const ct = (req.headers["content-type"] ?? "").toLowerCase();
-    if (!ct.startsWith("text/plain") || req.body !== undefined) return next();
+    if (!ct.startsWith("text/plain")) return next();
     const chunks: Buffer[] = [];
     req.on("data", (chunk: Buffer) => chunks.push(chunk));
     req.on("end", () => {
@@ -55,6 +54,11 @@ async function bootstrap() {
     });
     req.on("error", (err: Error) => next(err));
   });
+
+  // CV nộp qua Landing Page gửi base64 trong JSON/urlencoded body — nâng giới
+  // hạn mặc định (100kb) lên đủ cho file vài MB.
+  app.useBodyParser("json", { limit: "10mb" });
+  app.useBodyParser("urlencoded", { limit: "10mb", extended: true });
 
   const port = process.env.PORT ?? configService.get<string>("API_PORT") ?? "4000";
   await app.listen(port, "0.0.0.0");
