@@ -220,6 +220,14 @@ export function CellEditor({
           onInteractOutside={(e) => { e.preventDefault(); onCancel(); }}
           onEscapeKeyDown={onCancel}
         >
+          <button
+            type="button"
+            onMouseDown={stopMouseDown}
+            onClick={() => onCommit(null)}
+            className="flex w-full items-center rounded px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted/60"
+          >
+            — Trống —
+          </button>
           {choices.map((choice) => (
             <button
               key={choice.value}
