@@ -4,7 +4,7 @@ import { ConfigService } from "@nestjs/config";
 import { NestExpressApplication } from "@nestjs/platform-express";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
-import type { Request } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { AppModule } from "./app.module";
 
 process.on("uncaughtException", (err) => {
@@ -41,9 +41,20 @@ async function bootstrap() {
   // CV nộp qua Landing Page gửi base64 trong JSON/urlencoded body — nâng giới
   // hạn mặc định (100kb) lên đủ cho file vài MB.
   app.useBodyParser("json", { limit: "10mb" });
-  // text/plain dùng cho browser fetch() với mode:'no-cors' từ landing page (Cake/Webcake chặn JSON CORS preflight)
-  app.useBodyParser("text", { limit: "10mb", type: "text/plain" });
   app.useBodyParser("urlencoded", { limit: "10mb", extended: true });
+  // text/plain từ browser fetch() mode:'no-cors' (Webcake/Cake không cho CORS preflight).
+  // Đọc raw stream vì useBodyParser("text") không reliable trên một số môi trường deploy.
+  app.use((req: Request, _res: Response, next: NextFunction) => {
+    const ct = (req.headers["content-type"] ?? "").toLowerCase();
+    if (!ct.startsWith("text/plain") || req.body !== undefined) return next();
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    req.on("end", () => {
+      req.body = Buffer.concat(chunks).toString("utf8");
+      next();
+    });
+    req.on("error", (err: Error) => next(err));
+  });
 
   const port = process.env.PORT ?? configService.get<string>("API_PORT") ?? "4000";
   await app.listen(port, "0.0.0.0");
