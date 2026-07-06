@@ -127,23 +127,9 @@ export class IngestionService {
         userAgent: payload.userAgent,
         pageUrl: payload.pageUrl,
       });
-
-      if (result.status === "PROCESSED") {
-        this.fireLarkWebhook(payload.values as Record<string, unknown>, payload.pageUrl);
-      }
     }
 
     return { kind: "accepted" };
-  }
-
-  private fireLarkWebhook(values: Record<string, unknown>, pageUrl?: string | null): void {
-    const url = process.env.LARK_WEBHOOK_URL;
-    if (!url) return;
-    fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...values, pageUrl: pageUrl ?? "" }),
-    }).catch((err: Error) => this.logger.warn(`Lark webhook error: ${err.message}`));
   }
 
   /**
