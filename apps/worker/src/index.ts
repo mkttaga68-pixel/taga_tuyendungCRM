@@ -1,3 +1,4 @@
+// Redis: Railway managed Redis (no command limits) via REDIS_URL env var
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { Queue, Worker, type Job } from "bullmq";
