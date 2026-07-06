@@ -13,15 +13,6 @@ import {
   toStringValueOrNull,
 } from "./candidate-matching.util";
 
-const CORE_MERGE_FIELDS = [
-  "email",
-  "phone",
-  "dob",
-  "address",
-  "areaBranch",
-  "facebookLink",
-] as const;
-
 const FORM_FIELD_TYPE_TO_FIELD_TYPE: Record<string, FieldType> = {
   TEXT: "TEXT",
   LONG_TEXT: "LONG_TEXT",
@@ -71,27 +62,6 @@ export class CandidateMatchingService {
 
       const normalizedPhone = normalizeVnPhone(extracted.phone);
       const normalizedEmail = normalizeEmail(extracted.email);
-
-      const orConditions: Prisma.CandidateWhereInput[] = [];
-      if (normalizedPhone) orConditions.push({ phone: normalizedPhone });
-      if (normalizedEmail) orConditions.push({ email: normalizedEmail });
-
-      const existing =
-        orConditions.length > 0
-          ? await this.prisma.candidate.findFirst({
-              where: { deletedAt: null, OR: orConditions },
-              orderBy: { createdAt: "asc" },
-            })
-          : null;
-
-      if (existing) {
-        await this.mergeIntoExisting(existing.id, extracted, normalizedPhone, normalizedEmail);
-        await this.prisma.formSubmission.update({
-          where: { id: submission.id },
-          data: { candidateId: existing.id, processingStatus: "DUPLICATE", errorMessage: null },
-        });
-        return { status: "DUPLICATE", candidateId: existing.id };
-      }
 
       const candidateId = await this.createFromIngestion(
         landingPage,
@@ -253,48 +223,6 @@ export class CandidateMatchingService {
         isSystem: false,
       },
     });
-  }
-
-  private async mergeIntoExisting(
-    candidateId: string,
-    extracted: ExtractedFields,
-    normalizedPhone: string | null,
-    normalizedEmail: string | null,
-  ): Promise<void> {
-    const existing = await this.prisma.candidate.findUnique({ where: { id: candidateId } });
-    if (!existing) return;
-
-    const candidateValueByField: Record<(typeof CORE_MERGE_FIELDS)[number], string | null> = {
-      email: normalizedEmail,
-      phone: normalizedPhone,
-      dob: extracted.dob,
-      address: extracted.address,
-      areaBranch: extracted.areaBranch,
-      facebookLink: extracted.facebookLink,
-    };
-
-    const data: Record<string, unknown> = {};
-    const auditChanges: { fieldName: string; oldValue: unknown; newValue: unknown }[] = [];
-
-    for (const field of CORE_MERGE_FIELDS) {
-      const newValue = candidateValueByField[field];
-      const currentValue = (existing as unknown as Record<string, unknown>)[field];
-      const isCurrentEmpty =
-        currentValue === null || currentValue === undefined || currentValue === "";
-      if (isCurrentEmpty && newValue) {
-        if (field === "dob") {
-          data.dob = new Date(newValue);
-        } else {
-          data[field] = newValue;
-        }
-        auditChanges.push({ fieldName: field, oldValue: currentValue ?? null, newValue });
-      }
-    }
-
-    if (Object.keys(data).length === 0) return;
-
-    await this.prisma.candidate.update({ where: { id: candidateId }, data });
-    await this.auditLogService.recordUpdate("candidates", candidateId, null, auditChanges);
   }
 
   private async createFromIngestion(
