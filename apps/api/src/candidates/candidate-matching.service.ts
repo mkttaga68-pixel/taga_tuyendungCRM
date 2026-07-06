@@ -238,12 +238,19 @@ export class CandidateMatchingService {
       throw new Error("Chưa có pipeline stage nào được seed");
     }
 
+    const parsedDob = extracted.dob ? new Date(extracted.dob) : null;
+    const validDob =
+      parsedDob && !isNaN(parsedDob.getTime()) &&
+      parsedDob.getFullYear() >= 1900 && parsedDob.getFullYear() <= 2030
+        ? parsedDob
+        : null;
+
     const created = await this.prisma.candidate.create({
       data: {
         fullName: extracted.fullName!.trim(),
         phone: normalizedPhone,
         email: normalizedEmail,
-        dob: extracted.dob ? new Date(extracted.dob) : null,
+        dob: validDob,
         address: extracted.address,
         areaBranch: extracted.areaBranch,
         facebookLink: extracted.facebookLink,
@@ -303,7 +310,11 @@ export class CandidateMatchingService {
       },
     });
 
-    await this.automationQueueService.fireRecordCreated("candidates", created.id);
+    try {
+      await this.automationQueueService.fireRecordCreated("candidates", created.id);
+    } catch (err) {
+      this.logger.warn(`Automation queue lỗi cho candidate ${created.id}: ${err instanceof Error ? err.message : err}`);
+    }
 
     return created.id;
   }
