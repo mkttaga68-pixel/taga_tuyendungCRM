@@ -10,6 +10,7 @@ import { InfoTab } from "./info-tab";
 import { FormBuilderTab } from "./form-builder-tab";
 import { SubmissionsTab } from "./submissions-tab";
 import { TrackingTab } from "./tracking-tab";
+import { WebhookTab } from "./webhook-tab";
 
 export default function LandingPageDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -38,6 +39,7 @@ export default function LandingPageDetailPage({ params }: { params: Promise<{ id
       <Tabs defaultValue="info">
         <TabsList>
           <TabsTrigger value="info">Thông tin</TabsTrigger>
+          <TabsTrigger value="webhook">Kết nối Webhook</TabsTrigger>
           <TabsTrigger value="form">Form Builder</TabsTrigger>
           <TabsTrigger value="submissions">
             Submissions ({landingPage.submissionCount})
@@ -46,6 +48,9 @@ export default function LandingPageDetailPage({ params }: { params: Promise<{ id
         </TabsList>
         <TabsContent value="info">
           <InfoTab landingPage={landingPage} />
+        </TabsContent>
+        <TabsContent value="webhook">
+          <WebhookTab landingPage={landingPage} />
         </TabsContent>
         <TabsContent value="form">
           <FormBuilderTab landingPageId={id} />
