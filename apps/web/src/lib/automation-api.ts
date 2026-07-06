@@ -63,3 +63,7 @@ export function testRunWorkflow(id: string, candidateId: string) {
 export function cleanupStaleRuns() {
   return apiRequest<{ count: number }>("/automation/workflows/cleanup-stale-runs", { method: "POST" });
 }
+
+export function flushQueue() {
+  return apiRequest<{ removed: number }>("/automation/workflows/flush-queue", { method: "POST" });
+}

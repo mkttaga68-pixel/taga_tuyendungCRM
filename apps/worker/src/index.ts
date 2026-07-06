@@ -40,6 +40,10 @@ const systemWorker = new Worker<PingJobData, PingJobResult>(
  */
 const automationQueue = new Queue<AutomationJobData>(AUTOMATION_QUEUE_NAME, {
   connection: createRedisConnection(),
+  defaultJobOptions: {
+    removeOnComplete: { count: 200 },
+    removeOnFail: { count: 200 },
+  },
 });
 
 const automationWorker = new Worker<AutomationJobData>(
@@ -59,6 +63,10 @@ const automationWorker = new Worker<AutomationJobData>(
  */
 const reportsQueue = new Queue<ReportsRollupJobData>(REPORTS_ROLLUP_QUEUE_NAME, {
   connection: createRedisConnection(),
+  defaultJobOptions: {
+    removeOnComplete: { count: 30 },
+    removeOnFail: { count: 30 },
+  },
 });
 void reportsQueue.add(
   "daily-rollup",

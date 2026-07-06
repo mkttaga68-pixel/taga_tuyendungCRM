@@ -6,7 +6,7 @@ import { AUTOMATION_RUN_STATUS_LABELS, type AutomationRunStatus } from "@taga-cr
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { cleanupStaleRuns, listWorkflowRuns } from "@/lib/automation-api";
+import { cleanupStaleRuns, flushQueue, listWorkflowRuns } from "@/lib/automation-api";
 
 const STATUS_BADGE_VARIANT: Record<AutomationRunStatus, "default" | "secondary" | "destructive"> = {
   RUNNING: "secondary",
@@ -27,6 +27,12 @@ export function RunHistoryTab({ workflowId }: { workflowId: string }) {
     onError: () => toast.error("Không thể dọn dẹp — thử lại sau"),
   });
 
+  const flushMutation = useMutation({
+    mutationFn: flushQueue,
+    onSuccess: (data) => toast.success(`Đã xóa ${data.removed} jobs cũ khỏi Redis — queue thông rồi`),
+    onError: () => toast.error("Không thể flush queue — thử lại sau"),
+  });
+
   const query = useInfiniteQuery({
     queryKey: ["automation-workflows", workflowId, "runs"],
     queryFn: ({ pageParam }) => listWorkflowRuns(workflowId, { offset: pageParam, limit: 20 }),
@@ -42,6 +48,17 @@ export function RunHistoryTab({ workflowId }: { workflowId: string }) {
 
   return (
     <div className="space-y-2 pt-4">
+      <div className="flex justify-end">
+        <Button
+          size="sm"
+          variant="outline"
+          className="text-xs text-muted-foreground"
+          onClick={() => flushMutation.mutate()}
+          disabled={flushMutation.isPending}
+        >
+          {flushMutation.isPending ? "Đang flush..." : "Dọn jobs Redis cũ"}
+        </Button>
+      </div>
       {hasStuckRuns && (
         <div className="flex items-center justify-between rounded-md border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950 dark:text-yellow-200">
           <span>Có run đang bị treo "Đang chạy" — có thể worker chưa xử lý.</span>

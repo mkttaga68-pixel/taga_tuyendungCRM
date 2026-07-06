@@ -19,6 +19,10 @@ export class AutomationQueueService implements OnModuleDestroy {
     this.connection = new IORedis(url, { maxRetriesPerRequest: null });
     this.queue = new Queue<AutomationJobData>(AUTOMATION_QUEUE_NAME, {
       connection: this.connection,
+      defaultJobOptions: {
+        removeOnComplete: { count: 200 },
+        removeOnFail: { count: 200 },
+      },
     });
   }
 
@@ -72,6 +76,15 @@ export class AutomationQueueService implements OnModuleDestroy {
 
   async triggerManualRun(workflowId: string, candidateId: string): Promise<string> {
     return this.enqueueRun(workflowId, "candidates", candidateId);
+  }
+
+  /** Xóa toàn bộ completed/failed jobs cũ trong Redis — dùng khi Redis gần đầy. */
+  async flushOldJobs(): Promise<{ removed: number }> {
+    const [completed, failed] = await Promise.all([
+      this.queue.clean(0, 10_000, "completed"),
+      this.queue.clean(0, 10_000, "failed"),
+    ]);
+    return { removed: completed.length + failed.length };
   }
 
   async onModuleDestroy(): Promise<void> {

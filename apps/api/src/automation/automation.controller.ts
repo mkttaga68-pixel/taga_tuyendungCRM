@@ -103,4 +103,10 @@ export class AutomationController {
   cleanupStaleRuns() {
     return this.runsService.cleanupStaleRuns(15);
   }
+
+  /** Xóa toàn bộ completed/failed jobs cũ trong Redis — dùng khi Redis gần đầy. */
+  @Post("flush-queue")
+  flushQueue() {
+    return this.queueService.flushOldJobs();
+  }
 }
