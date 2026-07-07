@@ -68,7 +68,6 @@ export class EmailLogsService {
       ];
     }
 
-    const inboxWhere = { direction: "INBOUND", isRead: false };
     const [rows, total, unreadCount] = await Promise.all([
       this.prisma.emailLog.findMany({
         where,
@@ -81,7 +80,7 @@ export class EmailLogsService {
         },
       }),
       this.prisma.emailLog.count({ where }),
-      this.prisma.emailLog.count({ where: inboxWhere }),
+      this.prisma.emailLog.count({ where: { direction: "INBOUND" as const, isRead: false } }),
     ]);
 
     return {
@@ -209,6 +208,7 @@ export class EmailLogsService {
       errorMessage: log.errorMessage,
       sentBy: log.sentBy,
       sentByName: log.sender?.fullName ?? null,
+      isRead: false,
       createdAt: log.createdAt.toISOString(),
     };
   }
