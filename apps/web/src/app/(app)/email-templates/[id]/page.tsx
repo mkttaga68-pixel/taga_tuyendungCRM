@@ -1,15 +1,21 @@
 "use client";
 
-import { use, useMemo, useState } from "react";
+import { use, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft, Eye } from "lucide-react";
+import { ArrowLeft, ChevronDown, Eye } from "lucide-react";
 import { EMAIL_TEMPLATE_VARIABLES, type EmailBlock, type EmailTemplateDto } from "@taga-crm/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { getEmailTemplate, renderEmailBlocksPreview, updateEmailTemplate } from "@/lib/email-templates-api";
 import { listFieldDefinitions } from "@/lib/field-definitions-api";
 import { ApiError } from "@/lib/api-client";
@@ -36,6 +42,7 @@ function TemplateEditor({ id, template }: { id: string; template: EmailTemplateD
   const [subject, setSubject] = useState(template.subject);
   const [blocks, setBlocks] = useState<EmailBlock[]>(template.blocks);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+  const subjectRef = useRef<HTMLInputElement>(null);
 
   const fieldDefsQuery = useQuery({
     queryKey: ["field-definitions", "candidates"],
@@ -53,6 +60,23 @@ function TemplateEditor({ id, template }: { id: string; template: EmailTemplateD
         }));
     return [...EMAIL_TEMPLATE_VARIABLES, ...customFieldVars];
   }, [fieldDefsQuery.data]);
+
+  function insertSubjectVariable(key: string) {
+    const el = subjectRef.current;
+    const token = `{{${key}}}`;
+    if (!el) {
+      setSubject((s) => s + token);
+      return;
+    }
+    const start = el.selectionStart ?? subject.length;
+    const end = el.selectionEnd ?? subject.length;
+    const next = subject.slice(0, start) + token + subject.slice(end);
+    setSubject(next);
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(start + token.length, start + token.length);
+    });
+  }
 
   const saveMutation = useMutation({
     mutationFn: () => updateEmailTemplate(id, { name, subject, blocks }),
@@ -88,8 +112,31 @@ function TemplateEditor({ id, template }: { id: string; template: EmailTemplateD
           <Input className="w-56" value={name} onChange={(e) => setName(e.target.value)} />
         </div>
         <div className="flex-1 space-y-1">
-          <Label className="text-xs">Chủ đề email</Label>
-          <Input value={subject} onChange={(e) => setSubject(e.target.value)} />
+          <Label className="text-xs">Tiêu đề email (subject)</Label>
+          <div className="flex gap-1">
+            <Input
+              ref={subjectRef}
+              className="flex-1"
+              placeholder="VD: Thư mời phỏng vấn — {{candidate.fullName}}"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+            />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="outline" className="shrink-0 gap-1 text-xs">
+                  Chèn biến <ChevronDown className="size-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="max-h-64 overflow-y-auto">
+                {variables.map((v) => (
+                  <DropdownMenuItem key={v.key} onSelect={() => insertSubjectVariable(v.key)}>
+                    <span className="mr-2 font-mono text-xs text-muted-foreground">{`{{${v.key}}}`}</span>
+                    {v.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
         <Button
           type="button"

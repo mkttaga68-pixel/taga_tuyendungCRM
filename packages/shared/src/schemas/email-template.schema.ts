@@ -103,7 +103,7 @@ export const emailBlocksSchema = z.array(emailBlockSchema).max(40);
 
 export const createEmailTemplateSchema = z.object({
   name: z.string().min(1, "Tên mẫu tối thiểu 1 ký tự").max(150),
-  subject: z.string().min(1, "Chủ đề email tối thiểu 1 ký tự").max(300),
+  subject: z.string().max(300).default(""),
   blocks: emailBlocksSchema,
 });
 export type CreateEmailTemplateInput = z.infer<typeof createEmailTemplateSchema>;

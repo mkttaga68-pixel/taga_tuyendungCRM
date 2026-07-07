@@ -46,15 +46,15 @@ export default function EmailTemplatesPage() {
 
   const query = useQuery({ queryKey: ["email-templates"], queryFn: listEmailTemplates });
 
-  const createDialogSchema = createEmailTemplateSchema.pick({ name: true, subject: true });
+  const createDialogSchema = createEmailTemplateSchema.pick({ name: true });
   const form = useForm<z.infer<typeof createDialogSchema>>({
     resolver: zodResolver(createDialogSchema),
-    defaultValues: { name: "", subject: "" },
+    defaultValues: { name: "" },
   });
 
   const createMutation = useMutation({
     mutationFn: (values: z.infer<typeof createDialogSchema>) =>
-      createEmailTemplate({ ...values, blocks: [] }),
+      createEmailTemplate({ ...values, subject: "", blocks: [] }),
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ["email-templates"] });
       toast.success(`Đã tạo mẫu "${created.name}"`);
@@ -103,18 +103,9 @@ export default function EmailTemplatesPage() {
               >
                 <div className="space-y-2">
                   <Label htmlFor="et-name">Tên mẫu</Label>
-                  <Input id="et-name" {...form.register("name")} />
+                  <Input id="et-name" placeholder="VD: Mời phỏng vấn vòng 1" {...form.register("name")} />
                   {form.formState.errors.name && (
                     <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="et-subject">Chủ đề email</Label>
-                  <Input id="et-subject" {...form.register("subject")} />
-                  {form.formState.errors.subject && (
-                    <p className="text-sm text-destructive">
-                      {form.formState.errors.subject.message}
-                    </p>
                   )}
                 </div>
                 <DialogFooter>
