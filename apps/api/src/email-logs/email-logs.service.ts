@@ -237,25 +237,33 @@ export class EmailLogsService {
     const toEmail = Array.isArray(toRaw) ? ((toRaw[0] as string) ?? "") : ((toRaw as string | undefined) ?? "");
     const subject = (inbound.subject as string | undefined) ?? "(không có tiêu đề)";
 
-    // Resend có thể dùng nhiều field name khác nhau cho body
+    // Log từng field để debug — ?? không lọc được chuỗi rỗng
+    console.log("[inbound] html:", JSON.stringify(inbound.html)?.slice(0, 200));
+    console.log("[inbound] text:", JSON.stringify(inbound.text)?.slice(0, 200));
+    console.log("[inbound] all keys+types:", Object.entries(inbound).map(([k, v]) => `${k}:${typeof v}(${typeof v === "string" ? v.length : "-"})`).join(", "));
+
+    // Dùng || thay vì ?? để bỏ qua cả chuỗi rỗng ""
+    const nonEmpty = (v: unknown): string | undefined =>
+      typeof v === "string" && v.trim().length > 0 ? v : undefined;
+
     const htmlRaw =
-      (inbound.html as string | undefined) ??
-      (inbound.htmlBody as string | undefined) ??
-      (inbound.body_html as string | undefined) ??
-      (inbound.body as string | undefined);
+      nonEmpty(inbound.html) ??
+      nonEmpty(inbound.htmlBody) ??
+      nonEmpty(inbound.body_html) ??
+      nonEmpty(inbound.body);
 
     const textRaw =
-      (inbound.text as string | undefined) ??
-      (inbound.textBody as string | undefined) ??
-      (inbound.body_text as string | undefined) ??
-      (inbound.plain as string | undefined);
+      nonEmpty(inbound.text) ??
+      nonEmpty(inbound.textBody) ??
+      nonEmpty(inbound.body_text) ??
+      nonEmpty(inbound.plain);
 
     const messageId =
       (inbound.message_id as string | undefined) ??
       (inbound.messageId as string | undefined) ??
       (inbound.email_id as string | undefined);
 
-    console.log("[inbound] html length:", htmlRaw?.length ?? 0, "text length:", textRaw?.length ?? 0);
+    console.log("[inbound] htmlRaw length:", htmlRaw?.length ?? 0, "textRaw length:", textRaw?.length ?? 0);
 
     const bodyHtml = htmlRaw
       ? htmlRaw
