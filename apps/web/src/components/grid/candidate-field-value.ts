@@ -18,6 +18,7 @@ export const READONLY_FIELD_KEYS = new Set([
   "firstBrowser",
   "firstReferrer",
   "landingPageId",
+  "lastEmailLog",
 ]);
 
 /** RELATION sửa qua popover riêng (xem relation-cell-editor.tsx), không qua CellEditor mặc định. */
@@ -46,6 +47,13 @@ export function getCellValue(candidate: CandidateDto, field: FieldDefinitionDto)
       return candidate.recruiter;
     case "landingPageId":
       return candidate.landingPage;
+    case "lastEmailLog": {
+      const log = candidate.lastEmailLog;
+      if (!log) return null;
+      const d = new Date(log.sentAt);
+      const dateStr = `${d.getDate()}/${d.getMonth() + 1}`;
+      return `${log.subject} · ${dateStr}`;
+    }
     default:
       return (candidate as unknown as Record<string, unknown>)[field.fieldKey];
   }

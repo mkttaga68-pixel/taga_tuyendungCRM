@@ -193,6 +193,7 @@ const CANDIDATE_FIELD_SEEDS: CandidateFieldSeed[] = [
     width: 150,
     isHidden: true,
   },
+  { fieldKey: "lastEmailLog", label: "Email gần nhất", fieldType: "TEXT", width: 260 },
 ];
 
 async function seedCandidateFieldDefinitions() {

@@ -93,6 +93,7 @@ export interface CandidateDto {
   firstBrowser: string | null;
   firstReferrer: string | null;
   customFields: Record<string, unknown>;
+  lastEmailLog: { subject: string; sentAt: string } | null;
   createdAt: string;
   updatedAt: string;
 }

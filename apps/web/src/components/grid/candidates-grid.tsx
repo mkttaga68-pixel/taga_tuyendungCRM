@@ -273,6 +273,8 @@ export function CandidatesGrid() {
     // Đổi filter/sort/search/group đổi queryKey — giữ data cũ hiển thị trong lúc
     // fetch data mới, tránh unmount toàn bộ Grid (kể cả Toolbar) mỗi lần đổi.
     placeholderData: keepPreviousData,
+    // Poll mỗi 30s để cột "Email gần nhất" cập nhật real-time sau khi automation gửi mail.
+    refetchInterval: 30_000,
   });
 
   const candidates = useMemo(

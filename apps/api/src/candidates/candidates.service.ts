@@ -57,12 +57,19 @@ const CANDIDATE_INCLUDE = {
   status: { select: { id: true, key: true, label: true, color: true } },
   recruiter: { select: { id: true, fullName: true } },
   landingPage: { select: { id: true, name: true } },
+  emailLogs: {
+    where: { status: "SENT" },
+    select: { subject: true, sentAt: true },
+    orderBy: { sentAt: "desc" },
+    take: 1,
+  },
 } satisfies Prisma.CandidateInclude;
 
 type CandidateWithRelations = Candidate & {
   status: { id: string; key: string; label: string; color: string };
   recruiter: { id: string; fullName: string } | null;
   landingPage: { id: string; name: string } | null;
+  emailLogs: { subject: string; sentAt: Date | null }[];
 };
 
 /** Field tracking do pipeline ingestion (Sprint 3) ghi — không cho sửa tay qua PATCH. */
@@ -753,6 +760,12 @@ export class CandidatesService {
         ...((candidate.customFields as Record<string, unknown>) ?? {}),
         ...(computedFields ?? {}),
       },
+      lastEmailLog: candidate.emailLogs[0]
+        ? {
+            subject: candidate.emailLogs[0].subject,
+            sentAt: candidate.emailLogs[0].sentAt?.toISOString() ?? new Date().toISOString(),
+          }
+        : null,
       createdAt: candidate.createdAt.toISOString(),
       updatedAt: candidate.updatedAt.toISOString(),
     };
