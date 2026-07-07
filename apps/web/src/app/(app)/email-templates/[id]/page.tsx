@@ -106,52 +106,56 @@ function TemplateEditor({ id, template }: { id: string; template: EmailTemplateD
         <ArrowLeft className="size-4" /> Email Template
       </Link>
 
-      <div className="mb-4 flex flex-wrap items-end gap-3">
-        <div className="space-y-1">
-          <Label className="text-xs">Tên mẫu</Label>
-          <Input className="w-56" value={name} onChange={(e) => setName(e.target.value)} />
-        </div>
-        <div className="flex-1 space-y-1">
-          <Label className="text-xs">Tiêu đề email (subject)</Label>
-          <div className="flex gap-1">
-            <Input
-              ref={subjectRef}
-              className="flex-1"
-              placeholder="VD: Thư mời phỏng vấn — {{candidate.fullName}}"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-            />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button type="button" variant="outline" className="shrink-0 gap-1 text-xs">
-                  Chèn biến <ChevronDown className="size-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-72 max-h-64 overflow-y-auto">
-                {variables.map((v) => (
-                  <DropdownMenuItem key={v.key} onSelect={() => insertSubjectVariable(v.key)}>
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-sm">{v.label}</span>
-                      <span className="font-mono text-xs text-muted-foreground">{`{{${v.key}}}`}</span>
-                    </div>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+      <div className="mb-4 space-y-3">
+        <div className="flex items-end gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs">Tên mẫu</Label>
+            <Input className="w-56" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div className="flex-1 space-y-1">
+            <Label className="text-xs">Tiêu đề email (subject)</Label>
+            <div className="flex gap-1">
+              <Input
+                ref={subjectRef}
+                className="flex-1"
+                placeholder="VD: Thư mời phỏng vấn — {{candidate.fullName}}"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+              />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" variant="outline" className="shrink-0 gap-1 text-xs">
+                    Chèn biến <ChevronDown className="size-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-72 max-h-64 overflow-y-auto">
+                  {variables.map((v) => (
+                    <DropdownMenuItem key={v.key} onSelect={() => insertSubjectVariable(v.key)}>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-sm">{v.label}</span>
+                        <span className="font-mono text-xs text-muted-foreground">{`{{${v.key}}}`}</span>
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => previewMutation.mutate()}
+              disabled={previewMutation.isPending}
+            >
+              <Eye className="mr-1 size-4" />
+              {previewMutation.isPending ? "Đang tạo..." : "Xem trước"}
+            </Button>
+            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? "Đang lưu..." : "Lưu"}
+            </Button>
           </div>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => previewMutation.mutate()}
-          disabled={previewMutation.isPending}
-        >
-          <Eye className="mr-1 size-4" />
-          {previewMutation.isPending ? "Đang tạo..." : "Xem trước"}
-        </Button>
-        <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-          {saveMutation.isPending ? "Đang lưu..." : "Lưu"}
-        </Button>
       </div>
 
       <div className="min-h-0 flex-1">

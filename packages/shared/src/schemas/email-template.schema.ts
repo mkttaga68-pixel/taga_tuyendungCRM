@@ -126,8 +126,9 @@ export interface EmailTemplateRenderResult {
   html: string;
 }
 
-/** Biến `{{candidate.x}}` khả dụng khi soạn mẫu — đồng bộ với candidate-context.ts ở worker. */
+/** Biến khả dụng khi soạn mẫu — đồng bộ với candidate-context.ts ở worker. */
 export const EMAIL_TEMPLATE_VARIABLES: { key: string; label: string }[] = [
+  { key: "today", label: "Ngày gửi mail (DD-MM-YYYY)" },
   { key: "candidate.fullName", label: "Họ tên ứng viên" },
   { key: "candidate.email", label: "Email ứng viên" },
   { key: "candidate.phone", label: "SĐT ứng viên" },
