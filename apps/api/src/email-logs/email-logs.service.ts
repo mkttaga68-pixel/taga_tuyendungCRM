@@ -11,6 +11,24 @@ import { PrismaService } from "../prisma/prisma.service";
 import { ResendService } from "../email-settings/resend.service";
 import { EmailSettingsService } from "../email-settings/email-settings.service";
 
+function formatDateVN(d: Date): string {
+  return `${String(d.getDate()).padStart(2, "0")}-${String(d.getMonth() + 1).padStart(2, "0")}-${d.getFullYear()}`;
+}
+
+function resolveVariables(
+  template: string,
+  candidateCtx: Record<string, string | null> | null,
+): string {
+  let result = template.replace(/\{\{today\}\}/g, formatDateVN(new Date()));
+  if (candidateCtx) {
+    result = result.replace(/\{\{candidate\.(\w+)\}\}/g, (_, key: string) => {
+      const val = candidateCtx[key];
+      return val ?? `{{candidate.${key}}}`;
+    });
+  }
+  return result;
+}
+
 function plainBodyToHtml(text: string): string {
   const escaped = text
     .replace(/&/g, "&amp;")
@@ -100,7 +118,28 @@ export class EmailLogsService {
         : cfg.fromEmail
       : null;
 
-    const html = plainBodyToHtml(validated.bodyTemplate);
+    let candidateCtx: Record<string, string | null> | null = null;
+    if (validated.candidateId) {
+      const c = await this.prisma.candidate.findUnique({
+        where: { id: validated.candidateId },
+        include: { status: true, recruiter: true, landingPage: true },
+      });
+      if (c) {
+        candidateCtx = {
+          fullName: c.fullName,
+          email: c.email ?? null,
+          phone: c.phone ?? null,
+          statusLabel: c.status.label,
+          nextActionNote: c.nextActionNote ?? null,
+          recruiterName: (c.recruiter as { fullName?: string } | null)?.fullName ?? null,
+          landingPageName: (c.landingPage as { name?: string } | null)?.name ?? null,
+        };
+      }
+    }
+
+    const resolvedBody = resolveVariables(validated.bodyTemplate, candidateCtx);
+    const resolvedSubject = resolveVariables(validated.subject, candidateCtx);
+    const html = plainBodyToHtml(resolvedBody);
 
     let providerMessageId: string | null = null;
     let status: "SENT" | "FAILED" = "FAILED";
@@ -109,7 +148,7 @@ export class EmailLogsService {
     try {
       const result = await this.resendService.send({
         to: validated.to,
-        subject: validated.subject,
+        subject: resolvedSubject,
         html,
       });
       providerMessageId = result.id;
@@ -124,7 +163,7 @@ export class EmailLogsService {
         toEmail: validated.to,
         fromEmail: fromEmail,
         candidateId: validated.candidateId ?? null,
-        subject: validated.subject,
+        subject: resolvedSubject,
         bodyHtml: html,
         status,
         direction: "OUTBOUND",
@@ -177,7 +216,7 @@ export class EmailLogsService {
       };
     };
 
-    if (data?.type !== "email.inbound" || !data.data) {
+    if ((data?.type !== "email.inbound" && data?.type !== "email.received") || !data.data) {
       return { received: true };
     }
 
