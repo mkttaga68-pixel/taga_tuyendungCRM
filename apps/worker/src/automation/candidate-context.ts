@@ -16,9 +16,12 @@ export async function fetchCandidateContext(
   });
   if (!candidate) return null;
 
+  const customFields = (candidate.customFields as Record<string, unknown>) ?? {};
   return {
     ...candidate,
-    customFields: (candidate.customFields as Record<string, unknown>) ?? {},
+    // Spread custom fields lên top level để evaluateFilterCondition tìm được bằng fieldKey trực tiếp
+    ...customFields,
+    customFields,
     statusLabel: candidate.status.label,
     recruiterName: candidate.recruiter?.fullName ?? null,
     landingPageName: candidate.landingPage?.name ?? null,
