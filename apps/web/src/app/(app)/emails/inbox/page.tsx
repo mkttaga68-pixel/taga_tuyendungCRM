@@ -23,7 +23,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { toast } from "sonner";
 import { listEmailLogs, markEmailAsRead } from "@/lib/email-logs-api";
+import type { EmailLogListResponse } from "@taga-crm/shared";
 
 function formatDate(iso: string) {
   const d = new Date(iso);
@@ -44,6 +46,23 @@ export default function InboxPage() {
 
   const markReadMutation = useMutation({
     mutationFn: markEmailAsRead,
+    onMutate: async (id: string) => {
+      // Optimistic update: đánh dấu đọc ngay lập tức trong cache
+      await queryClient.cancelQueries({ queryKey: ["email-logs"] });
+      const prev = queryClient.getQueryData<EmailLogListResponse>(["email-logs", "inbox", search, page]);
+      if (prev) {
+        queryClient.setQueryData<EmailLogListResponse>(["email-logs", "inbox", search, page], {
+          ...prev,
+          data: prev.data.map((log) => log.id === id ? { ...log, isRead: true } : log),
+          unreadCount: Math.max(0, (prev.unreadCount ?? 0) - 1),
+        });
+      }
+      return { prev };
+    },
+    onError: (_err, _id, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(["email-logs", "inbox", search, page], ctx.prev);
+      toast.error("Không thể đánh dấu đã đọc");
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["email-logs"] });
       queryClient.invalidateQueries({ queryKey: ["inbox-unread-count"] });
