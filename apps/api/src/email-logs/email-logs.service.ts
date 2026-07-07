@@ -204,44 +204,73 @@ export class EmailLogsService {
 
   /** Nhận email inbound từ Resend webhook — lưu vào EmailLog với direction=INBOUND. */
   async receiveInbound(payload: unknown): Promise<{ received: true }> {
+    // Log toàn bộ payload để debug cấu trúc Resend gửi về
+    console.log("[inbound] raw payload keys:", Object.keys(payload as object));
+    console.log("[inbound] full payload:", JSON.stringify(payload, null, 2).slice(0, 3000));
+
     const data = payload as {
       type?: string;
-      data?: {
-        from?: string;
-        to?: string[];
-        subject?: string;
-        html?: string;
-        text?: string;
-        message_id?: string;
-      };
+      data?: Record<string, unknown>;
     };
 
     if ((data?.type !== "email.inbound" && data?.type !== "email.received") || !data.data) {
+      console.log("[inbound] skipped — type:", data?.type, "has data:", !!data?.data);
       return { received: true };
     }
 
     const inbound = data.data;
-    const fromEmail = inbound.from ?? "unknown";
-    const toEmail = Array.isArray(inbound.to) ? (inbound.to[0] ?? "") : "";
-    const subject = inbound.subject ?? "(không có tiêu đề)";
-    const bodyHtml = inbound.html ?? `<pre>${inbound.text ?? ""}</pre>`;
+    console.log("[inbound] data keys:", Object.keys(inbound));
 
-    // Thử match candidate theo fromEmail
+    const fromEmail = (inbound.from as string | undefined) ?? "unknown";
+    const toRaw = inbound.to;
+    const toEmail = Array.isArray(toRaw) ? ((toRaw[0] as string) ?? "") : ((toRaw as string | undefined) ?? "");
+    const subject = (inbound.subject as string | undefined) ?? "(không có tiêu đề)";
+
+    // Resend có thể dùng nhiều field name khác nhau cho body
+    const htmlRaw =
+      (inbound.html as string | undefined) ??
+      (inbound.htmlBody as string | undefined) ??
+      (inbound.body_html as string | undefined) ??
+      (inbound.body as string | undefined);
+
+    const textRaw =
+      (inbound.text as string | undefined) ??
+      (inbound.textBody as string | undefined) ??
+      (inbound.body_text as string | undefined) ??
+      (inbound.plain as string | undefined);
+
+    const messageId =
+      (inbound.message_id as string | undefined) ??
+      (inbound.messageId as string | undefined) ??
+      (inbound.email_id as string | undefined);
+
+    console.log("[inbound] html length:", htmlRaw?.length ?? 0, "text length:", textRaw?.length ?? 0);
+
+    const bodyHtml = htmlRaw
+      ? htmlRaw
+      : textRaw
+        ? `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="font-family:Arial,sans-serif;font-size:14px;line-height:1.7;padding:24px;"><pre style="white-space:pre-wrap;word-break:break-word;">${textRaw.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre></body></html>`
+        : `<p style="color:#888;font-style:italic;">(Không có nội dung)</p>`;
+
+    // Thử match candidate theo fromEmail (strip display name nếu có "Name <email>")
+    const emailMatch = fromEmail.match(/<([^>]+)>/);
+    const normalizedFrom = emailMatch ? emailMatch[1] : fromEmail;
+
     const candidate = await this.prisma.candidate.findFirst({
-      where: { email: fromEmail, deletedAt: null },
+      where: { email: normalizedFrom, deletedAt: null },
       select: { id: true },
     });
 
     await this.prisma.emailLog.create({
       data: {
         toEmail,
-        fromEmail,
+        fromEmail: normalizedFrom,
         candidateId: candidate?.id ?? null,
         subject,
         bodyHtml,
         status: "SENT",
         direction: "INBOUND",
-        providerMessageId: inbound.message_id ?? null,
+        providerMessageId: messageId ?? null,
         sentAt: new Date(),
       },
     });
