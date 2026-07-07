@@ -7,6 +7,6 @@ import { UiSettingsController } from "./ui-settings.controller";
 @Module({
   controllers: [EmailSettingsController, UiSettingsController],
   providers: [EmailSettingsService, ResendService],
-  exports: [ResendService],
+  exports: [ResendService, EmailSettingsService],
 })
 export class EmailSettingsModule {}
