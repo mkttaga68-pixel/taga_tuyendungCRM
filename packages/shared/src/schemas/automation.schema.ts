@@ -8,7 +8,18 @@ import { filterConditionSchema } from "./view.schema";
 // trước khi thực thi, tránh chạy node với config sai hình dạng).
 // ============================================================
 
-export const ifConfigSchema = z.object({ condition: filterConditionSchema });
+export const conditionGroupSchema = z.object({
+  logic: z.enum(["AND", "OR"]),
+  conditions: z.array(filterConditionSchema).min(1),
+});
+export type ConditionGroup = z.infer<typeof conditionGroupSchema>;
+
+export const ifConfigSchema = z.object({
+  // Format mới: nhiều điều kiện với AND/OR
+  conditionGroup: conditionGroupSchema.optional(),
+  // Legacy: 1 điều kiện (backward compat cho node đã lưu trước đó)
+  condition: filterConditionSchema.optional(),
+});
 export type IfConfig = z.infer<typeof ifConfigSchema>;
 
 export const switchConfigSchema = z.object({ fieldKey: z.string().min(1) });

@@ -1,13 +1,20 @@
-import { evaluateFilterCondition, ifConfigSchema, switchConfigSchema, loopConfigSchema } from "@taga-crm/shared";
+import { evaluateFilterCondition, evaluateConditionGroup, ifConfigSchema, switchConfigSchema, loopConfigSchema } from "@taga-crm/shared";
 import { fetchCandidateContext } from "../candidate-context";
 import type { NodeExecutor } from "../types";
 
-/** IF/CONDITION — 1 điều kiện, 2 nhánh "true"/"false" (đặt conditionLabel trên edge). */
+/** IF/CONDITION — nhiều điều kiện AND/OR, 2 nhánh "true"/"false" (đặt conditionLabel trên edge). */
 export const ifExecutor: NodeExecutor = async ({ node, prisma, triggerRecordId, execVars }) => {
   const config = ifConfigSchema.parse(node.config);
   const candidate = await fetchCandidateContext(prisma, triggerRecordId);
   const record = { ...candidate, vars: execVars.vars };
-  const result = candidate ? evaluateFilterCondition(record, config.condition) : false;
+  let result: boolean;
+  if (config.conditionGroup) {
+    result = candidate ? evaluateConditionGroup(record, config.conditionGroup) : false;
+  } else if (config.condition) {
+    result = candidate ? evaluateFilterCondition(record, config.condition) : false;
+  } else {
+    result = false;
+  }
   return { output: { result }, branchLabel: result ? "true" : "false" };
 };
 

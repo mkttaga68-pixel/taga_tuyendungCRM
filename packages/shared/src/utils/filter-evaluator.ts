@@ -1,4 +1,5 @@
 import type { FilterCondition } from "../schemas/view.schema";
+import type { ConditionGroup } from "../schemas/automation.schema";
 
 /**
  * Đánh giá 1 FilterCondition trên 1 record JS thường (không qua SQL) — dùng
@@ -59,6 +60,17 @@ export function evaluateFilterCondition(
     default:
       return false;
   }
+}
+
+/** Đánh giá nhóm điều kiện AND/OR — dùng bởi IF node trong Automation Engine. */
+export function evaluateConditionGroup(
+  record: Record<string, unknown>,
+  group: ConditionGroup,
+): boolean {
+  if (group.logic === "AND") {
+    return group.conditions.every((c) => evaluateFilterCondition(record, c));
+  }
+  return group.conditions.some((c) => evaluateFilterCondition(record, c));
 }
 
 function toNumber(v: unknown): number {
