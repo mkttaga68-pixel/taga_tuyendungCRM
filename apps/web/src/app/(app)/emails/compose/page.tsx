@@ -136,18 +136,6 @@ export default function ComposePage() {
                     <TooltipContent>{v.label}</TooltipContent>
                   </Tooltip>
                 ))}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={() => insertVariable("today")}
-                      className="rounded border px-2 py-0.5 text-xs hover:bg-muted"
-                    >
-                      {"{{today}}"}
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>Ngày gửi mail (DD-MM-YYYY)</TooltipContent>
-                </Tooltip>
               </TooltipProvider>
             </div>
 
