@@ -38,11 +38,13 @@ function VariableInsertButton({ onInsert, variables }: VariableInsertButtonProps
           + Chèn biến
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="max-h-72 overflow-y-auto">
+      <DropdownMenuContent align="end" className="w-72 max-h-72 overflow-y-auto">
         {variables.map((v) => (
           <DropdownMenuItem key={v.key} onClick={() => onInsert(`{{${v.key}}}`)}>
-            {v.label}{" "}
-            <span className="ml-1 font-mono text-xs text-muted-foreground">{`{{${v.key}}}`}</span>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm">{v.label}</span>
+              <span className="font-mono text-xs text-muted-foreground">{`{{${v.key}}}`}</span>
+            </div>
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

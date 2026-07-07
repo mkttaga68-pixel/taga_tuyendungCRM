@@ -127,11 +127,13 @@ function TemplateEditor({ id, template }: { id: string; template: EmailTemplateD
                   Chèn biến <ChevronDown className="size-3" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="max-h-64 overflow-y-auto">
+              <DropdownMenuContent align="end" className="w-72 max-h-64 overflow-y-auto">
                 {variables.map((v) => (
                   <DropdownMenuItem key={v.key} onSelect={() => insertSubjectVariable(v.key)}>
-                    <span className="mr-2 font-mono text-xs text-muted-foreground">{`{{${v.key}}}`}</span>
-                    {v.label}
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-sm">{v.label}</span>
+                      <span className="font-mono text-xs text-muted-foreground">{`{{${v.key}}}`}</span>
+                    </div>
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
