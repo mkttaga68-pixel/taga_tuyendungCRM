@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuthStore } from "@/stores/auth-store";
 import { OverviewTab } from "./overview-tab";
 import { AdSpendTab } from "./ad-spend-tab";
+import { MktReportTab } from "./mkt-report-tab";
 
 export default function ReportsPage() {
   const user = useAuthStore((s) => s.user);
@@ -30,12 +31,16 @@ export default function ReportsPage() {
         <TabsList>
           <TabsTrigger value="overview">Tổng quan</TabsTrigger>
           <TabsTrigger value="ad-spend">Chi phí Ads</TabsTrigger>
+          <TabsTrigger value="marketing">Marketing Hub</TabsTrigger>
         </TabsList>
         <TabsContent value="overview">
           <OverviewTab />
         </TabsContent>
         <TabsContent value="ad-spend">
           <AdSpendTab />
+        </TabsContent>
+        <TabsContent value="marketing">
+          <MktReportTab />
         </TabsContent>
       </Tabs>
     </div>

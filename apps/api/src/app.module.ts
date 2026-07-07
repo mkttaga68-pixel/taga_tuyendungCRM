@@ -28,6 +28,12 @@ import { NotificationsModule } from "./notifications/notifications.module";
 import { EmailSettingsModule } from "./email-settings/email-settings.module";
 import { CustomTablesModule } from "./custom-tables/custom-tables.module";
 import { EmailLogsModule } from "./email-logs/email-logs.module";
+import { MktContactsModule } from "./mkt/mkt-contacts/mkt-contacts.module";
+import { MktContactListsModule } from "./mkt/mkt-contact-lists/mkt-contact-lists.module";
+import { MktTagsModule } from "./mkt/mkt-tags/mkt-tags.module";
+import { MktCampaignsModule } from "./mkt/mkt-campaigns/mkt-campaigns.module";
+import { MktLandingPageConfigModule } from "./mkt/mkt-landing-page-config/mkt-landing-page-config.module";
+import { MktDashboardModule } from "./mkt/mkt-dashboard/mkt-dashboard.module";
 
 @Module({
   imports: [
@@ -61,6 +67,12 @@ import { EmailLogsModule } from "./email-logs/email-logs.module";
     EmailSettingsModule,
     CustomTablesModule,
     EmailLogsModule,
+    MktContactsModule,
+    MktContactListsModule,
+    MktTagsModule,
+    MktCampaignsModule,
+    MktLandingPageConfigModule,
+    MktDashboardModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

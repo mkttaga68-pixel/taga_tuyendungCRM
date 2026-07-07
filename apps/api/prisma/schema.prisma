@@ -156,6 +156,46 @@ enum AdSpendChannel {
 }
 
 // ============================================================
+// MARKETING HUB ENUMS
+// ============================================================
+
+enum MktCampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum MktDelayUnit {
+  MINUTES
+  HOURS
+  DAYS
+  WEEKS
+}
+
+enum MktEnrollmentStatus {
+  ACTIVE
+  COMPLETED
+  UNSUBSCRIBED
+  FAILED
+}
+
+enum MktEmailSendStatus {
+  SCHEDULED
+  SENT
+  FAILED
+  SKIPPED
+}
+
+enum MktEmailEventType {
+  OPEN
+  CLICK
+  BOUNCE
+  SPAM
+  UNSUBSCRIBE
+}
+
+// ============================================================
 // AUTH / USERS
 // ============================================================
 
@@ -192,6 +232,8 @@ model User {
   customTablesCreated   CustomTable[]        @relation("CustomTableCreator")
   customRecordsCreated  CustomRecord[]       @relation("CustomRecordCreator")
   emailLogsSent         EmailLog[]           @relation("EmailLogSentBy")
+  mktContactLists       MktContactList[]     @relation("MktContactListCreator")
+  mktCampaigns          MktCampaign[]        @relation("MktCampaignCreator")
 
   @@map("users")
 }
@@ -238,6 +280,7 @@ model LandingPage {
   candidates      Candidate[]
   adSpendEntries  AdSpend[]
   metricsDaily    LandingPageMetricDaily[]
+  mktConfig       MktLandingPageConfig?
 
   @@index([status])
   @@map("landing_pages")
@@ -343,6 +386,7 @@ model Candidate {
   cvAttachments        CvAttachment[]
   interviews           Interview[]
   emailLogs            EmailLog[]
+  mktContacts          MktContact[]
 
   @@index([phone])
   @@index([email])
@@ -582,8 +626,9 @@ model EmailTemplate {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  creator User?      @relation(fields: [createdBy], references: [id])
-  logs    EmailLog[]
+  creator        User?              @relation(fields: [createdBy], references: [id])
+  logs           EmailLog[]
+  campaignEmails MktCampaignEmail[]
 
   @@map("email_templates")
 }
@@ -787,4 +832,213 @@ model CustomRecord {
 
   @@index([tableId])
   @@map("custom_records")
+}
+
+// ============================================================
+// MARKETING HUB
+// ============================================================
+
+model MktContact {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fullName      String    @map("full_name")
+  email         String    @unique
+  phone         String?
+  source        String?
+  notes         String?
+  unsubscribed  Boolean   @default(false)
+  candidateId   String?   @map("candidate_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  candidate    Candidate?              @relation(fields: [candidateId], references: [id])
+  listMembers  MktContactListMember[]
+  tags         MktContactTag[]
+  enrollments  MktCampaignEnrollment[]
+  emailSends   MktEmailSend[]
+  events       MktContactEvent[]
+
+  @@index([email])
+  @@index([candidateId])
+  @@map("mkt_contacts")
+}
+
+model MktContactList {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  description String?
+  color       String    @default("#6366f1")
+  createdBy   String?   @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  creator       User?                   @relation("MktContactListCreator", fields: [createdBy], references: [id])
+  members       MktContactListMember[]
+  landingConfigs MktLandingPageConfig[] @relation("MktLandingPageDefaultList")
+
+  @@map("mkt_contact_lists")
+}
+
+model MktContactListMember {
+  contactId String   @map("contact_id") @db.Uuid
+  listId    String   @map("list_id") @db.Uuid
+  addedAt   DateTime @default(now()) @map("added_at")
+
+  contact MktContact     @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  list    MktContactList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@id([contactId, listId])
+  @@map("mkt_contact_list_members")
+}
+
+model MktTag {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String   @unique
+  slug      String   @unique
+  color     String   @default("#8b5cf6")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  contactTags MktContactTag[]
+
+  @@map("mkt_tags")
+}
+
+model MktContactTag {
+  contactId String @map("contact_id") @db.Uuid
+  tagId     String @map("tag_id") @db.Uuid
+
+  contact MktContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  tag     MktTag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([contactId, tagId])
+  @@map("mkt_contact_tags")
+}
+
+model MktLandingPageConfig {
+  landingPageId     String   @id @map("landing_page_id") @db.Uuid
+  defaultListId     String?  @map("default_list_id") @db.Uuid
+  defaultCampaignId String?  @map("default_campaign_id") @db.Uuid
+  defaultTagIds     String[] @default([]) @map("default_tag_ids") @db.Uuid
+  sourceLabel       String?  @map("source_label")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  landingPage  LandingPage     @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
+  defaultList  MktContactList? @relation("MktLandingPageDefaultList", fields: [defaultListId], references: [id])
+  defaultCampaign MktCampaign? @relation("MktLandingPageDefaultCampaign", fields: [defaultCampaignId], references: [id])
+
+  @@map("mkt_landing_page_configs")
+}
+
+model MktCampaign {
+  id          String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  description String?
+  status      MktCampaignStatus @default(DRAFT)
+  fromName    String            @map("from_name")
+  fromEmail   String            @map("from_email")
+  replyTo     String?           @map("reply_to")
+  createdBy   String?           @map("created_by") @db.Uuid
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  deletedAt   DateTime?         @map("deleted_at")
+
+  creator       User?                   @relation("MktCampaignCreator", fields: [createdBy], references: [id])
+  emails        MktCampaignEmail[]
+  enrollments   MktCampaignEnrollment[]
+  landingConfigs MktLandingPageConfig[] @relation("MktLandingPageDefaultCampaign")
+
+  @@index([status])
+  @@map("mkt_campaigns")
+}
+
+model MktCampaignEmail {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  campaignId  String       @map("campaign_id") @db.Uuid
+  position    Int
+  subject     String
+  bodyHtml    String       @map("body_html")
+  templateId  String?      @map("template_id") @db.Uuid
+  delayValue  Int          @default(0) @map("delay_value")
+  delayUnit   MktDelayUnit @default(DAYS) @map("delay_unit")
+  sendWindow  Json         @default("{\"from\":\"08:00\",\"to\":\"20:00\",\"days\":[1,2,3,4,5],\"tz\":\"Asia/Ho_Chi_Minh\"}") @map("send_window")
+  condition   Json         @default("{}") @map("condition")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  campaign  MktCampaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  template  EmailTemplate? @relation(fields: [templateId], references: [id])
+  sends     MktEmailSend[]
+
+  @@unique([campaignId, position])
+  @@map("mkt_campaign_emails")
+}
+
+model MktCampaignEnrollment {
+  id            String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contactId     String              @map("contact_id") @db.Uuid
+  campaignId    String              @map("campaign_id") @db.Uuid
+  currentStep   Int                 @default(0) @map("current_step")
+  status        MktEnrollmentStatus @default(ACTIVE)
+  enrolledAt    DateTime            @default(now()) @map("enrolled_at")
+  completedAt   DateTime?           @map("completed_at")
+
+  contact   MktContact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  campaign  MktCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  emailSends MktEmailSend[]
+
+  @@unique([contactId, campaignId])
+  @@index([campaignId, status])
+  @@map("mkt_campaign_enrollments")
+}
+
+model MktEmailSend {
+  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  enrollmentId      String             @map("enrollment_id") @db.Uuid
+  campaignEmailId   String             @map("campaign_email_id") @db.Uuid
+  contactId         String             @map("contact_id") @db.Uuid
+  scheduledAt       DateTime           @map("scheduled_at")
+  sentAt            DateTime?          @map("sent_at")
+  status            MktEmailSendStatus @default(SCHEDULED)
+  providerMessageId String?            @map("provider_message_id")
+  createdAt         DateTime           @default(now()) @map("created_at")
+
+  enrollment    MktCampaignEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  campaignEmail MktCampaignEmail      @relation(fields: [campaignEmailId], references: [id], onDelete: Cascade)
+  contact       MktContact            @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  events        MktEmailEvent[]
+
+  @@index([enrollmentId])
+  @@index([scheduledAt, status])
+  @@map("mkt_email_sends")
+}
+
+model MktEmailEvent {
+  id          String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sendId      String            @map("send_id") @db.Uuid
+  eventType   MktEmailEventType @map("event_type")
+  occurredAt  DateTime          @default(now()) @map("occurred_at")
+  ipAddress   String?           @map("ip_address")
+  userAgent   String?           @map("user_agent")
+  linkUrl     String?           @map("link_url")
+  linkHash    String?           @map("link_hash")
+
+  send MktEmailSend @relation(fields: [sendId], references: [id], onDelete: Cascade)
+
+  @@index([sendId, eventType])
+  @@map("mkt_email_events")
+}
+
+model MktContactEvent {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contactId  String   @map("contact_id") @db.Uuid
+  eventType  String   @map("event_type")
+  meta       Json     @default("{}")
+  occurredAt DateTime @default(now()) @map("occurred_at")
+
+  contact MktContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId, occurredAt])
+  @@map("mkt_contact_events")
 }

@@ -13,6 +13,10 @@ import {
   History,
   UserCog,
   Settings,
+  Megaphone,
+  BookUser,
+  ListFilter,
+  Tags,
   type LucideIcon,
 } from "lucide-react";
 import type { Role } from "@taga-crm/shared";
@@ -23,6 +27,8 @@ export interface NavItem {
   icon: LucideIcon;
   /** Để trống = mọi role đã đăng nhập đều thấy. */
   roles?: Role[];
+  /** Nếu true, đây là header nhóm (không clickable). */
+  isGroup?: boolean;
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -37,6 +43,13 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Soạn thư", href: "/emails/compose", icon: PenSquare },
   { label: "Lịch phỏng vấn", href: "/interviews", icon: CalendarClock },
   { label: "Báo cáo", href: "/reports", icon: BarChart3 },
+  // --- Marketing Hub ---
+  { label: "Marketing Hub", href: "/marketing/dashboard", icon: Megaphone },
+  { label: "Danh bạ (Contacts)", href: "/marketing/contacts", icon: BookUser },
+  { label: "Danh sách", href: "/marketing/contact-lists", icon: ListFilter },
+  { label: "Tags", href: "/marketing/tags", icon: Tags },
+  { label: "Chiến dịch Email", href: "/marketing/campaigns", icon: Mail },
+  // --- System ---
   { label: "Audit Log", href: "/audit-log", icon: History, roles: ["ADMIN", "HR_MANAGER"] },
   {
     label: "Người dùng & Phân quyền",

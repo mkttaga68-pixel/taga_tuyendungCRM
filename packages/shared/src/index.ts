@@ -34,3 +34,7 @@ export * from "./schemas/email-template.schema";
 export * from "./schemas/email-log.schema";
 export * from "./schemas/notification.schema";
 export * from "./schemas/custom-table.schema";
+export * from "./schemas/mkt-contact.schema";
+export * from "./schemas/mkt-contact-list.schema";
+export * from "./schemas/mkt-tag.schema";
+export * from "./schemas/mkt-campaign.schema";
