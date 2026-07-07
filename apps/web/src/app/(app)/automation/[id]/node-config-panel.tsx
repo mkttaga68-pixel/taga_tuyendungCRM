@@ -124,8 +124,7 @@ export function NodeConfigPanel({ node, users, onChangeConfig, onToggleEntry, on
   }
 
   return (
-    <div className="flex h-full w-80 flex-col border-l">
-      <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
+    <div className="relative flex w-80 flex-col gap-3 overflow-y-auto border-l p-4">
       <div className="flex items-center justify-between">
         <h3 className="font-medium">{AUTOMATION_NODE_TYPE_LABELS[type]}</h3>
         <Button variant="ghost" size="icon" onClick={onDelete}>
@@ -624,8 +623,7 @@ export function NodeConfigPanel({ node, users, onChangeConfig, onToggleEntry, on
         <p className="text-xs text-muted-foreground">Node placeholder — không cần cấu hình.</p>
       )}
 
-      </div>
-      <div className="shrink-0 border-t p-3">
+      <div className="sticky bottom-0 -mx-4 border-t bg-background px-4 pb-4 pt-3">
         <Button
           type="button"
           size="sm"
