@@ -279,6 +279,8 @@ function AutomationCanvasInner({
           onChangeConfig={updateSelectedNodeConfig}
           onToggleEntry={toggleSelectedNodeEntry}
           onDelete={deleteSelectedNode}
+          onSave={() => saveMutation.mutate()}
+          isSaving={saveMutation.isPending}
         />
       )}
 

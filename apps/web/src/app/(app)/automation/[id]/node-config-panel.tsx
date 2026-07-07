@@ -43,6 +43,8 @@ interface Props {
   onChangeConfig: (config: Record<string, unknown>) => void;
   onToggleEntry: (isEntry: boolean) => void;
   onDelete: () => void;
+  onSave: () => void;
+  isSaving: boolean;
 }
 
 function FieldsListEditor({
@@ -93,7 +95,7 @@ function FieldsListEditor({
   );
 }
 
-export function NodeConfigPanel({ node, users, onChangeConfig, onToggleEntry, onDelete }: Props) {
+export function NodeConfigPanel({ node, users, onChangeConfig, onToggleEntry, onDelete, onSave, isSaving }: Props) {
   const { type, config, isEntry } = node.data;
   const [localConfig, setLocalConfig] = useState(config);
   const isIfNode = type === "IF" || type === "CONDITION";
@@ -620,6 +622,16 @@ export function NodeConfigPanel({ node, users, onChangeConfig, onToggleEntry, on
       {type === "ELSE" && (
         <p className="text-xs text-muted-foreground">Node placeholder — không cần cấu hình.</p>
       )}
+
+      <Button
+        type="button"
+        size="sm"
+        className="w-full mt-2"
+        onClick={onSave}
+        disabled={isSaving}
+      >
+        {isSaving ? "Đang lưu..." : "Lưu"}
+      </Button>
     </div>
   );
 }
