@@ -7,7 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import {
   AUTOMATION_TRIGGER_TYPE_LABELS,
   AUTOMATION_TRIGGER_TYPES,
@@ -74,6 +74,8 @@ export default function AutomationPage() {
   const [open, setOpen] = useState(false);
   const [selectedTableKey, setSelectedTableKey] = useState("candidates");
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [renameTarget, setRenameTarget] = useState<{ id: string; name: string } | null>(null);
+  const [renameNameDraft, setRenameNameDraft] = useState("");
 
   const query = useQuery({ queryKey: ["automation-workflows"], queryFn: listWorkflows });
   const tablesQuery = useQuery({ queryKey: ["custom-tables"], queryFn: listCustomTables, staleTime: 30_000 });
@@ -114,6 +116,18 @@ export default function AutomationPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["automation-workflows"] }),
     onError: (error) => {
       toast.error(error instanceof ApiError ? error.message : "Không thể đổi trạng thái");
+    },
+  });
+
+  const renameMutation = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) => updateWorkflow(id, { name }),
+    onSuccess: (_, { name }) => {
+      queryClient.invalidateQueries({ queryKey: ["automation-workflows"] });
+      toast.success(`Đã đổi tên thành "${name}"`);
+      setRenameTarget(null);
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiError ? error.message : "Không thể đổi tên");
     },
   });
 
@@ -263,14 +277,27 @@ export default function AutomationPage() {
                   />
                 </TableCell>
                 <TableCell>
-                  <button
-                    type="button"
-                    title="Xoá automation"
-                    onClick={() => setDeleteTarget({ id: wf.id, name: wf.name })}
-                    className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                  >
-                    <Trash2 className="size-4" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      title="Đổi tên"
+                      onClick={() => {
+                        setRenameTarget({ id: wf.id, name: wf.name });
+                        setRenameNameDraft(wf.name);
+                      }}
+                      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    >
+                      <Pencil className="size-4" />
+                    </button>
+                    <button
+                      type="button"
+                      title="Xoá automation"
+                      onClick={() => setDeleteTarget({ id: wf.id, name: wf.name })}
+                      className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -284,6 +311,43 @@ export default function AutomationPage() {
           </TableBody>
         </Table>
       </div>
+
+      <Dialog open={!!renameTarget} onOpenChange={(open) => { if (!open) setRenameTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Đổi tên Automation</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-1">
+            <Label htmlFor="rename-input">Tên mới</Label>
+            <Input
+              id="rename-input"
+              value={renameNameDraft}
+              onChange={(e) => setRenameNameDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && renameNameDraft.trim() && renameTarget) {
+                  renameMutation.mutate({ id: renameTarget.id, name: renameNameDraft.trim() });
+                }
+              }}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameTarget(null)}>
+              Huỷ
+            </Button>
+            <Button
+              disabled={!renameNameDraft.trim() || renameMutation.isPending}
+              onClick={() => {
+                if (renameTarget && renameNameDraft.trim()) {
+                  renameMutation.mutate({ id: renameTarget.id, name: renameNameDraft.trim() });
+                }
+              }}
+            >
+              {renameMutation.isPending ? "Đang lưu..." : "Lưu"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
         <AlertDialogContent>

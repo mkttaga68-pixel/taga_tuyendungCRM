@@ -1,9 +1,9 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { ArrowLeft, Table2 } from "lucide-react";
+import { ArrowLeft, Pencil, Table2 } from "lucide-react";
 import { toast } from "sonner";
 import { AUTOMATION_TRIGGER_TYPE_LABELS } from "@taga-crm/shared";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { getWorkflow, updateWorkflow } from "@/lib/automation-api";
 import { listCustomTables } from "@/lib/custom-tables-api";
 import { getUiSettings } from "@/lib/settings-api";
@@ -34,6 +35,37 @@ export default function AutomationDetailPage({ params }: { params: Promise<{ id:
   const uiSettingsQuery = useQuery({ queryKey: ["ui-settings"], queryFn: getUiSettings, staleTime: 60_000 });
   const candidatesTableName = uiSettingsQuery.data?.candidatesTableName ?? "Ứng viên";
   const [selectedTableKey, setSelectedTableKey] = useState<string | null>(null);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState("");
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  const renameMutation = useMutation({
+    mutationFn: (name: string) => updateWorkflow(id, { name }),
+    onSuccess: (_, name) => {
+      queryClient.invalidateQueries({ queryKey: ["automation-workflows", id] });
+      queryClient.invalidateQueries({ queryKey: ["automation-workflows"] });
+      toast.success(`Đã đổi tên thành "${name}"`);
+      setIsEditingName(false);
+    },
+    onError: (err) => {
+      toast.error(err instanceof ApiError ? err.message : "Không thể đổi tên");
+    },
+  });
+
+  function startEditName() {
+    setEditedName(query.data?.name ?? "");
+    setIsEditingName(true);
+    setTimeout(() => nameInputRef.current?.select(), 0);
+  }
+
+  function commitRename() {
+    const trimmed = editedName.trim();
+    if (!trimmed || trimmed === query.data?.name) {
+      setIsEditingName(false);
+      return;
+    }
+    renameMutation.mutate(trimmed);
+  }
 
   const updateTriggerMutation = useMutation({
     mutationFn: (tableKey: string) =>
@@ -73,7 +105,30 @@ export default function AutomationDetailPage({ params }: { params: Promise<{ id:
           <ArrowLeft className="size-4" /> Automation
         </Link>
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-xl font-semibold tracking-tight">{workflow.name}</h1>
+          {isEditingName ? (
+            <Input
+              ref={nameInputRef}
+              className="h-8 w-72 text-xl font-semibold"
+              value={editedName}
+              onChange={(e) => setEditedName(e.target.value)}
+              onBlur={commitRename}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitRename();
+                if (e.key === "Escape") setIsEditingName(false);
+              }}
+              autoFocus
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={startEditName}
+              title="Nhấn để đổi tên"
+              className="group flex items-center gap-1.5 rounded px-1 -mx-1 hover:bg-muted transition-colors"
+            >
+              <h1 className="text-xl font-semibold tracking-tight">{workflow.name}</h1>
+              <Pencil className="size-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+            </button>
+          )}
           <Badge variant={workflow.isActive ? "default" : "secondary"}>
             {workflow.isActive ? "Đang bật" : "Đang tắt"}
           </Badge>
