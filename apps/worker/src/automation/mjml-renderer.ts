@@ -9,10 +9,23 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/** Strip dangerous tags/attributes; allow safe inline HTML (strong, em, a, br, u, span, b, i). */
+function sanitizeTextHtml(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/\s+on\w+\s*=\s*"[^"]*"/gi, "")
+    .replace(/\s+on\w+\s*=\s*'[^']*'/gi, "")
+    .replace(/href\s*=\s*"([^"]*)"/gi, (_match, url: string) => {
+      const trimmed = url.trim().toLowerCase();
+      return /^(https?:|mailto:|#)/.test(trimmed) ? `href="${url}"` : 'href="#"';
+    });
+}
+
 function renderLeafBlock(block: EmailLeafBlock): string {
   switch (block.type) {
     case "TEXT":
-      return `<mj-text align="${block.align}" font-size="${block.fontSize}px">${escapeHtml(
+      return `<mj-text align="${block.align}" font-size="${block.fontSize}px">${sanitizeTextHtml(
         block.content,
       ).replace(/\n/g, "<br/>")}</mj-text>`;
     case "IMAGE":
