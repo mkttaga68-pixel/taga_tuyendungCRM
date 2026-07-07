@@ -109,6 +109,11 @@ enum EmailStatus {
   BOUNCED
 }
 
+enum EmailDirection {
+  INBOUND
+  OUTBOUND
+}
+
 enum AutomationTriggerType {
   RECORD_CREATED
   FIELD_CHANGED
@@ -186,6 +191,7 @@ model User {
   googleOAuthToken      GoogleOAuthToken?
   customTablesCreated   CustomTable[]        @relation("CustomTableCreator")
   customRecordsCreated  CustomRecord[]       @relation("CustomRecordCreator")
+  emailLogsSent         EmailLog[]           @relation("EmailLogSentBy")
 
   @@map("users")
 }
@@ -583,21 +589,28 @@ model EmailTemplate {
 }
 
 model EmailLog {
-  id                String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  templateId        String?     @map("template_id") @db.Uuid
-  toEmail           String      @map("to_email")
-  candidateId       String?     @map("candidate_id") @db.Uuid
+  id                String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  templateId        String?        @map("template_id") @db.Uuid
+  toEmail           String         @map("to_email")
+  fromEmail         String?        @map("from_email")
+  candidateId       String?        @map("candidate_id") @db.Uuid
   subject           String
-  bodyHtml          String      @map("body_html")
-  status            EmailStatus @default(QUEUED)
-  providerMessageId  String?    @map("provider_message_id")
-  sentAt            DateTime?   @map("sent_at")
-  errorMessage      String?     @map("error_message")
+  bodyHtml          String         @map("body_html")
+  status            EmailStatus    @default(QUEUED)
+  direction         EmailDirection @default(OUTBOUND) @map("direction")
+  providerMessageId String?        @map("provider_message_id")
+  sentAt            DateTime?      @map("sent_at")
+  errorMessage      String?        @map("error_message")
+  sentBy            String?        @map("sent_by") @db.Uuid
+  createdAt         DateTime       @default(now()) @map("created_at")
 
   template  EmailTemplate? @relation(fields: [templateId], references: [id])
   candidate Candidate?     @relation(fields: [candidateId], references: [id])
+  sender    User?          @relation("EmailLogSentBy", fields: [sentBy], references: [id])
 
   @@index([candidateId])
+  @@index([direction])
+  @@index([createdAt])
   @@map("email_logs")
 }
 

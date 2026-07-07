@@ -31,5 +31,6 @@ export * from "./schemas/report.schema";
 export * from "./schemas/record-link.schema";
 export * from "./utils/formula-evaluator";
 export * from "./schemas/email-template.schema";
+export * from "./schemas/email-log.schema";
 export * from "./schemas/notification.schema";
 export * from "./schemas/custom-table.schema";
