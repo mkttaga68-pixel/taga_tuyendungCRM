@@ -24,10 +24,12 @@ function sanitizeTextHtml(html: string): string {
 
 function renderLeafBlock(block: EmailLeafBlock): string {
   switch (block.type) {
-    case "TEXT":
+    case "TEXT": {
+      const withBold = block.content.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
       return `<mj-text align="${block.align}" font-size="${block.fontSize}px">${sanitizeTextHtml(
-        block.content,
+        withBold,
       ).replace(/\n/g, "<br/>")}</mj-text>`;
+    }
     case "IMAGE":
       return `<mj-image src="${escapeHtml(block.url)}" alt="${escapeHtml(block.alt ?? "")}" width="${block.width}px"${
         block.link ? ` href="${escapeHtml(block.link)}"` : ""
