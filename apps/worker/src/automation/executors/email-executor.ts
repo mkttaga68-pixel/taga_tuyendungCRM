@@ -63,7 +63,9 @@ export const emailExecutor: NodeExecutor = async ({
     : null;
 
   const candidate = await fetchCandidateContext(prisma, triggerRecordId);
-  const data = { candidate, vars: execVars.vars, loopItem: execVars.vars.loopItem };
+  const _now = new Date();
+  const today = `${String(_now.getDate()).padStart(2, "0")}-${String(_now.getMonth() + 1).padStart(2, "0")}-${_now.getFullYear()}`;
+  const data = { candidate, vars: execVars.vars, loopItem: execVars.vars.loopItem, today };
   const to = interpolateTemplate(config.to, data);
 
   if (!to || typeof to !== "string" || !to.includes("@")) {
