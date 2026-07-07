@@ -28,3 +28,7 @@ export function sendEmail(input: SendEmailInput) {
     body: JSON.stringify(input),
   });
 }
+
+export function markEmailAsRead(id: string) {
+  return apiRequest<void>(`/email-logs/${id}/read`, { method: "PATCH" });
+}

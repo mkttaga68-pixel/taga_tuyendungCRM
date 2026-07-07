@@ -602,6 +602,7 @@ model EmailLog {
   sentAt            DateTime?      @map("sent_at")
   errorMessage      String?        @map("error_message")
   sentBy            String?        @map("sent_by") @db.Uuid
+  isRead            Boolean        @default(false) @map("is_read")
   createdAt         DateTime       @default(now()) @map("created_at")
 
   template  EmailTemplate? @relation(fields: [templateId], references: [id])
@@ -611,6 +612,7 @@ model EmailLog {
   @@index([candidateId])
   @@index([direction])
   @@index([createdAt])
+  @@index([isRead])
   @@map("email_logs")
 }
 

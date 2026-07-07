@@ -36,6 +36,7 @@ import {
   updateCustomTable,
 } from "@/lib/custom-tables-api";
 import { getUiSettings, updateUiSettings } from "@/lib/settings-api";
+import { listEmailLogs } from "@/lib/email-logs-api";
 import { ApiError } from "@/lib/api-client";
 import type { Role } from "@taga-crm/shared";
 
@@ -67,6 +68,14 @@ export function AppSidebar() {
     queryFn: getUiSettings,
     staleTime: 60_000,
   });
+
+  const inboxUnreadQuery = useQuery({
+    queryKey: ["inbox-unread-count"],
+    queryFn: () => listEmailLogs({ direction: "INBOUND", limit: 1 }),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+  const inboxUnread = inboxUnreadQuery.data?.unreadCount ?? 0;
   const candidatesTableName = uiSettingsQuery.data?.candidatesTableName ?? "Ứng viên";
 
   const renameCandidatesMutation = useMutation({
@@ -295,12 +304,18 @@ export function AppSidebar() {
               {items.map((item) => {
                 const isActive =
                   pathname === item.href || pathname.startsWith(`${item.href}/`);
+                const isInbox = item.href === "/emails/inbox";
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton asChild isActive={isActive} tooltip={item.label}>
                       <Link href={item.href}>
                         <item.icon />
-                        <span>{item.label}</span>
+                        <span className="flex-1">{item.label}</span>
+                        {isInbox && inboxUnread > 0 && (
+                          <span className="ml-auto flex size-5 items-center justify-center rounded-full bg-blue-500 text-[10px] font-semibold text-white group-data-[collapsible=icon]:hidden">
+                            {inboxUnread > 99 ? "99+" : inboxUnread}
+                          </span>
+                        )}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

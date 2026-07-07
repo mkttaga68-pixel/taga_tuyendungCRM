@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { AlertCircle } from "lucide-react";
 import type { EmailLogDto } from "@taga-crm/shared";
@@ -23,7 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { listEmailLogs } from "@/lib/email-logs-api";
+import { listEmailLogs, markEmailAsRead } from "@/lib/email-logs-api";
 
 function formatDate(iso: string) {
   const d = new Date(iso);
@@ -34,11 +34,20 @@ export default function InboxPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [preview, setPreview] = useState<EmailLogDto | null>(null);
+  const queryClient = useQueryClient();
 
   const query = useQuery({
     queryKey: ["email-logs", "inbox", search, page],
     queryFn: () => listEmailLogs({ direction: "INBOUND", search: search || undefined, page, limit: 20 }),
     placeholderData: (prev) => prev,
+  });
+
+  const markReadMutation = useMutation({
+    mutationFn: markEmailAsRead,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["email-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["inbox-unread-count"] });
+    },
   });
 
   const data = query.data;
@@ -84,26 +93,37 @@ export default function InboxPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {(data?.data ?? []).map((log) => (
-              <TableRow
-                key={log.id}
-                className="cursor-pointer hover:bg-muted/50"
-                onClick={() => setPreview(log)}
-              >
-                <TableCell className="max-w-xs truncate font-medium">{log.subject}</TableCell>
-                <TableCell className="text-muted-foreground">{log.fromEmail ?? "—"}</TableCell>
-                <TableCell>
-                  {log.candidateId && log.candidateName ? (
-                    <Badge variant="outline">{log.candidateName}</Badge>
-                  ) : (
-                    <span className="text-muted-foreground">—</span>
-                  )}
-                </TableCell>
-                <TableCell className="text-muted-foreground text-sm">
-                  {formatDate(log.createdAt)}
-                </TableCell>
-              </TableRow>
-            ))}
+            {(data?.data ?? []).map((log) => {
+              const unread = !log.isRead;
+              return (
+                <TableRow
+                  key={log.id}
+                  className={`cursor-pointer hover:bg-muted/50 ${unread ? "bg-blue-50/40 dark:bg-blue-950/20" : ""}`}
+                  onClick={() => {
+                    setPreview(log);
+                    if (unread) markReadMutation.mutate(log.id);
+                  }}
+                >
+                  <TableCell className={`max-w-xs truncate ${unread ? "font-semibold text-foreground" : "font-normal text-muted-foreground"}`}>
+                    {unread && <span className="mr-2 inline-block size-2 rounded-full bg-blue-500 align-middle" />}
+                    {log.subject}
+                  </TableCell>
+                  <TableCell className={unread ? "font-medium text-foreground" : "text-muted-foreground"}>
+                    {log.fromEmail ?? "—"}
+                  </TableCell>
+                  <TableCell>
+                    {log.candidateId && log.candidateName ? (
+                      <Badge variant="outline">{log.candidateName}</Badge>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className={`text-sm ${unread ? "font-medium text-foreground" : "text-muted-foreground"}`}>
+                    {formatDate(log.createdAt)}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
             {data?.data.length === 0 && (
               <TableRow>
                 <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">

@@ -68,7 +68,8 @@ export class EmailLogsService {
       ];
     }
 
-    const [rows, total] = await Promise.all([
+    const inboxWhere = { direction: "INBOUND", isRead: false };
+    const [rows, total, unreadCount] = await Promise.all([
       this.prisma.emailLog.findMany({
         where,
         orderBy: { createdAt: "desc" },
@@ -80,6 +81,7 @@ export class EmailLogsService {
         },
       }),
       this.prisma.emailLog.count({ where }),
+      this.prisma.emailLog.count({ where: inboxWhere }),
     ]);
 
     return {
@@ -99,12 +101,21 @@ export class EmailLogsService {
         errorMessage: r.errorMessage,
         sentBy: r.sentBy,
         sentByName: r.sender?.fullName ?? null,
+        isRead: r.isRead,
         createdAt: r.createdAt.toISOString(),
       })),
       total,
       page,
       limit,
+      unreadCount,
     };
+  }
+
+  async markAsRead(id: string): Promise<void> {
+    await this.prisma.emailLog.update({
+      where: { id },
+      data: { isRead: true },
+    });
   }
 
   async send(input: SendEmailInput, user: AccessTokenPayload): Promise<EmailLogDto> {
@@ -304,6 +315,7 @@ export class EmailLogsService {
       errorMessage: log.errorMessage,
       sentBy: log.sentBy,
       sentByName: log.sender?.fullName ?? null,
+      isRead: log.isRead,
       createdAt: log.createdAt.toISOString(),
     };
   }

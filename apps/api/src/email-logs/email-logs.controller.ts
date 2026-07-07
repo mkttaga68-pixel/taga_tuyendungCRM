@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import {
   sendEmailSchema,
   type AccessTokenPayload,
@@ -46,6 +46,12 @@ export class EmailLogsController {
   @Get(":id")
   findOne(@Param("id") id: string) {
     return this.emailLogsService.findOne(id);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Patch(":id/read")
+  markAsRead(@Param("id") id: string) {
+    return this.emailLogsService.markAsRead(id);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

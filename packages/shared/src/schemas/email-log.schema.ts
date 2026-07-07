@@ -29,6 +29,7 @@ export interface EmailLogDto {
   errorMessage: string | null;
   sentBy: string | null;
   sentByName: string | null;
+  isRead: boolean;
   createdAt: string;
 }
 
@@ -46,6 +47,7 @@ export interface EmailLogListResponse {
   total: number;
   page: number;
   limit: number;
+  unreadCount: number;
 }
 
 export const sendEmailSchema = z.object({
