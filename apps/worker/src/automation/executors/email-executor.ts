@@ -3,6 +3,31 @@ import { fetchCandidateContext } from "../candidate-context";
 import { renderEmailTemplateToHtml } from "../mjml-renderer";
 import type { NodeExecutor } from "../types";
 
+/** Convert ISO date YYYY-MM-DD → DD-MM-YYYY trong text (cả subject lẫn body). */
+function formatIsoDates(text: string): string {
+  return text.replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, "$3-$2-$1");
+}
+
+/**
+ * Wrap plain-text body template thành HTML email đúng chuẩn:
+ * - font-weight: 400 rõ ràng tránh email client render mặc định quá dày
+ * - **bold** → <strong>
+ * - \n → <br> cho dòng mới
+ */
+function plainBodyToHtml(text: string): string {
+  const escaped = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  const withBold = escaped.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  const withBreaks = withBold.replace(/\n/g, "<br>");
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:400;line-height:1.7;color:#222;background:#fff;margin:0;padding:0;">
+<div style="max-width:600px;margin:0 auto;padding:24px;">${withBreaks}</div>
+</body></html>`;
+}
+
 async function getResendConfig(prisma: Parameters<NodeExecutor>[0]["prisma"]) {
   const rows = await prisma.systemSetting.findMany({
     where: { key: { in: ["resend.apiKey", "resend.fromEmail", "resend.fromName"] } },
@@ -61,8 +86,10 @@ export const emailExecutor: NodeExecutor = async ({
     rawHtml = config.bodyTemplate ?? "";
   }
 
-  const subject = interpolateTemplate(rawSubject, data);
-  const html = interpolateTemplate(rawHtml, data);
+  const subject = formatIsoDates(interpolateTemplate(rawSubject, data));
+  const html = config.templateId
+    ? formatIsoDates(interpolateTemplate(rawHtml, data))
+    : plainBodyToHtml(formatIsoDates(interpolateTemplate(rawHtml, data)));
 
   if (!apiKey || !fromAddress) {
     await prisma.emailLog.create({
