@@ -112,7 +112,22 @@ export default function InboxPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {(data?.data ?? []).map((log) => {
+            {query.isLoading && (
+              <TableRow>
+                <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
+                  Đang tải...
+                </TableCell>
+              </TableRow>
+            )}
+            {query.isError && (
+              <TableRow>
+                <TableCell colSpan={4} className="py-8 text-center text-destructive">
+                  Không thể tải hộp thư:{" "}
+                  {query.error instanceof Error ? query.error.message : "Lỗi không xác định"}
+                </TableCell>
+              </TableRow>
+            )}
+            {!query.isLoading && !query.isError && (data?.data ?? []).map((log) => {
               const unread = !log.isRead;
               return (
                 <TableRow
@@ -143,7 +158,7 @@ export default function InboxPage() {
                 </TableRow>
               );
             })}
-            {data?.data.length === 0 && (
+            {!query.isLoading && !query.isError && (data?.data ?? []).length === 0 && (
               <TableRow>
                 <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
                   Chưa có email nào. Hộp thư sẽ hiển thị email ứng viên phản hồi sau khi cấu hình Resend Inbound.
