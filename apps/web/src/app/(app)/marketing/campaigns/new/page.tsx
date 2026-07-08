@@ -72,7 +72,7 @@ const DELAY_UNIT_LABELS: Record<MktDelayUnit, string> = {
 const STEPS = [
   { id: 1, label: "Thông tin chiến dịch" },
   { id: 2, label: "Cài đặt chiến dịch" },
-  { id: 3, label: "Chuỗi email" },
+  { id: 3, label: "Các bước xử lý cơ hội" },
   { id: 4, label: "Danh bạ & Mục tiêu" },
 ] as const;
 
