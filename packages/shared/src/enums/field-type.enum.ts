@@ -30,6 +30,7 @@ export const FIELD_TYPES = [
   "UPDATED_TIME",
   "AUTO_NUMBER",
   "USER",
+  "MKT_LIST",
 ] as const;
 
 export type FieldType = (typeof FIELD_TYPES)[number];
@@ -59,6 +60,7 @@ export const FIELD_TYPE_LABELS: Record<FieldType, string> = {
   UPDATED_TIME: "Thời gian cập nhật",
   AUTO_NUMBER: "Số tự động",
   USER: "Người dùng",
+  MKT_LIST: "Danh bạ Marketing",
 };
 
 /** Field type được tính tại thời điểm đọc, không lưu giá trị vật lý trong custom_fields. */

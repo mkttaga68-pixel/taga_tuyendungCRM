@@ -92,6 +92,7 @@ export const FIELD_TYPE_OPERATORS: Record<FieldType, FilterOperator[]> = {
   FORMULA: [],
   LOOKUP: [],
   ROLLUP: [],
+  MKT_LIST: ["is_empty", "is_not_empty"],
 };
 
 /** Field type nào cho phép Sort/Filter qua API hiện tại (chưa có engine cho Formula/Lookup/Rollup/Relation — Sprint 8). */

@@ -51,6 +51,7 @@ import {
 } from "@/lib/field-definitions-api";
 import { listPipelineStages } from "@/lib/pipeline-stages-api";
 import { lookupUsers } from "@/lib/users-lookup-api";
+import { listMktContactLists } from "@/lib/mkt-api";
 import { createView, deleteView, listViews, setDefaultView, updateView } from "@/lib/views-api";
 import { downloadCandidatesExport, importCandidatesFile } from "@/lib/import-export-api";
 import { useAuthStore } from "@/stores/auth-store";
@@ -137,12 +138,14 @@ export function CandidatesGrid() {
   const pipelineStagesQuery = useQuery({ queryKey: ["pipeline-stages"], queryFn: listPipelineStages });
   const usersQuery = useQuery({ queryKey: ["users-lookup"], queryFn: lookupUsers });
   const viewsQuery = useQuery({ queryKey: VIEWS_QUERY_KEY, queryFn: () => listViews(TABLE_KEY) });
+  const mktListsQuery = useQuery({ queryKey: ["mkt-contact-lists"], queryFn: listMktContactLists });
 
   const fields = useMemo(() => fieldsQuery.data ?? [], [fieldsQuery.data]);
   const visibleFields = useMemo(() => fields.filter((f) => !f.isHidden), [fields]);
   const hiddenFields = useMemo(() => fields.filter((f) => f.isHidden), [fields]);
   const pipelineStages = pipelineStagesQuery.data ?? [];
   const users = usersQuery.data ?? [];
+  const allMktLists = useMemo(() => mktListsQuery.data ?? [], [mktListsQuery.data]);
   const views = useMemo(() => viewsQuery.data ?? [], [viewsQuery.data]);
   const fieldsByKey = useMemo(() => new Map(fields.map((f) => [f.fieldKey, f])), [fields]);
 
@@ -933,6 +936,7 @@ export function CandidatesGrid() {
                     isEditing={editingCell?.rowIndex === rowIndex && editingCell?.colIndex === colIndex}
                     pipelineStages={pipelineStages}
                     users={users}
+                    allMktLists={allMktLists}
                     onActivate={(extend) => setActiveCell({ rowIndex, colIndex }, extend)}
                     onStartEdit={() => setEditingCell({ rowIndex, colIndex })}
                     onCommit={(value) => handleCommitEdit(candidate.id, field, value)}

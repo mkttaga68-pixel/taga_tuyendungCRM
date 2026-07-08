@@ -109,6 +109,17 @@ export function CellDisplay({ candidate, field }: { candidate: CandidateDto; fie
         </div>
       );
     }
+    case "MKT_LIST": {
+      const lists = Array.isArray(value) ? (value as { id: string; name: string }[]) : [];
+      if (lists.length === 0) return null;
+      return (
+        <div className="flex flex-wrap gap-1">
+          {lists.map((list) => (
+            <Pill key={list.id} label={list.name} color="#6366f1" />
+          ))}
+        </div>
+      );
+    }
     case "LOOKUP": {
       const items = Array.isArray(value) ? value : [value];
       return <span className="truncate text-muted-foreground">{items.join(", ")}</span>;

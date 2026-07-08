@@ -94,6 +94,7 @@ enum FieldType {
   UPDATED_TIME
   AUTO_NUMBER
   USER
+  MKT_LIST
 }
 
 enum ViewType {

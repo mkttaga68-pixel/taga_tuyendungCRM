@@ -63,6 +63,14 @@ const CANDIDATE_INCLUDE = {
     orderBy: { sentAt: "desc" },
     take: 1,
   },
+  mktContacts: {
+    where: { deletedAt: null },
+    select: {
+      listMembers: {
+        select: { list: { select: { id: true, name: true } } },
+      },
+    },
+  },
 } satisfies Prisma.CandidateInclude;
 
 type CandidateWithRelations = Candidate & {
@@ -70,6 +78,7 @@ type CandidateWithRelations = Candidate & {
   recruiter: { id: string; fullName: string } | null;
   landingPage: { id: string; name: string } | null;
   emailLogs: { subject: string; sentAt: Date | null }[];
+  mktContacts: { listMembers: { list: { id: string; name: string } }[] }[];
 };
 
 /** Field tracking do pipeline ingestion (Sprint 3) ghi — không cho sửa tay qua PATCH. */
@@ -766,8 +775,77 @@ export class CandidatesService {
             sentAt: candidate.emailLogs[0].sentAt?.toISOString() ?? new Date().toISOString(),
           }
         : null,
+      mktContactLists: (() => {
+        const seen = new Map<string, { id: string; name: string }>();
+        for (const c of candidate.mktContacts) {
+          for (const m of c.listMembers) {
+            if (!seen.has(m.list.id)) seen.set(m.list.id, m.list);
+          }
+        }
+        return Array.from(seen.values());
+      })(),
       createdAt: candidate.createdAt.toISOString(),
       updatedAt: candidate.updatedAt.toISOString(),
     };
+  }
+
+  async syncMktLists(
+    actor: AccessTokenPayload,
+    candidateId: string,
+    listIds: string[],
+  ): Promise<CandidateDto> {
+    const candidate = await this.getVisibleOrThrow(actor, candidateId, { forWrite: true });
+
+    // Tìm MktContact đã liên kết với candidate này (ưu tiên theo candidateId)
+    let contact = await this.prisma.mktContact.findFirst({
+      where: { candidateId, deletedAt: null },
+    });
+
+    if (!contact && candidate.email) {
+      // Fallback: tìm theo email rồi gán candidateId nếu chưa có
+      contact = await this.prisma.mktContact.findFirst({
+        where: { email: candidate.email, candidateId: null, deletedAt: null },
+      });
+      if (contact) {
+        contact = await this.prisma.mktContact.update({
+          where: { id: contact.id },
+          data: { candidateId },
+        });
+      }
+    }
+
+    if (!contact) {
+      contact = await this.prisma.mktContact.create({
+        data: {
+          email: candidate.email ?? `no-email-${candidateId}@internal`,
+          candidateId,
+          fullName: candidate.fullName,
+        },
+      });
+    }
+
+    // Đồng bộ MktContactListMember: xóa hết, tạo lại theo listIds mới
+    await this.prisma.mktContactListMember.deleteMany({
+      where: { contactId: contact.id },
+    });
+
+    if (listIds.length > 0) {
+      await this.prisma.mktContactListMember.createMany({
+        data: listIds.map((listId) => ({ contactId: contact!.id, listId })),
+        skipDuplicates: true,
+      });
+    }
+
+    const updated = await this.prisma.candidate.findUniqueOrThrow({
+      where: { id: candidateId },
+      include: CANDIDATE_INCLUDE,
+    });
+
+    const fieldDefMap = await this.loadFieldDefMap();
+    const computed = await this.computeFieldsService.computeForRows(
+      [updated],
+      Array.from(fieldDefMap.values()),
+    );
+    return this.toDto(updated, computed.get(updated.id));
   }
 }

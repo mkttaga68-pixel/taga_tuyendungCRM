@@ -21,7 +21,7 @@ export const READONLY_FIELD_KEYS = new Set([
   "lastEmailLog",
 ]);
 
-/** RELATION sửa qua popover riêng (xem relation-cell-editor.tsx), không qua CellEditor mặc định. */
+/** RELATION và MKT_LIST sửa qua popover riêng, không qua CellEditor mặc định. */
 export function isFieldEditable(field: FieldDefinitionDto): boolean {
   if (READONLY_FIELD_KEYS.has(field.fieldKey)) return false;
   return ![
@@ -32,6 +32,7 @@ export function isFieldEditable(field: FieldDefinitionDto): boolean {
     "ROLLUP",
     "RELATION",
     "AUTO_NUMBER",
+    "MKT_LIST",
   ].includes(field.fieldType);
 }
 
@@ -47,6 +48,8 @@ export function getCellValue(candidate: CandidateDto, field: FieldDefinitionDto)
       return candidate.recruiter;
     case "landingPageId":
       return candidate.landingPage;
+    case "mktListIds":
+      return candidate.mktContactLists;
     case "lastEmailLog": {
       const log = candidate.lastEmailLog;
       if (!log) return null;

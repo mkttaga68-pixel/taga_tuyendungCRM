@@ -87,3 +87,10 @@ export function removeCandidateRelation(candidateId: string, fieldKey: string, t
     { method: "DELETE" },
   );
 }
+
+export function syncCandidateMktLists(candidateId: string, listIds: string[]) {
+  return apiRequest<CandidateDto>(`/candidates/${candidateId}/mkt-lists`, {
+    method: "PATCH",
+    body: JSON.stringify({ listIds }),
+  });
+}

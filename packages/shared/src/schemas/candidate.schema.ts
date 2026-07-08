@@ -94,6 +94,7 @@ export interface CandidateDto {
   firstReferrer: string | null;
   customFields: Record<string, unknown>;
   lastEmailLog: { subject: string; sentAt: string } | null;
+  mktContactLists: { id: string; name: string }[];
   createdAt: string;
   updatedAt: string;
 }

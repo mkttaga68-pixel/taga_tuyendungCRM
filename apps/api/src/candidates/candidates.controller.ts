@@ -13,6 +13,7 @@ import {
   UploadedFile,
   UseGuards,
   UseInterceptors,
+  ParseArrayPipe,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import type { Response } from "express";
@@ -176,5 +177,15 @@ export class CandidatesController {
     @CurrentUser() user: AccessTokenPayload,
   ) {
     return this.candidatesService.removeRelation(user, id, fieldKey, toRecordId);
+  }
+
+  @Patch(":id/mkt-lists")
+  @Roles("ADMIN", "HR_MANAGER", "RECRUITER", "INTERVIEWER")
+  syncMktLists(
+    @Param("id") id: string,
+    @Body("listIds", new ParseArrayPipe({ items: String, optional: false })) listIds: string[],
+    @CurrentUser() user: AccessTokenPayload,
+  ) {
+    return this.candidatesService.syncMktLists(user, id, listIds);
   }
 }

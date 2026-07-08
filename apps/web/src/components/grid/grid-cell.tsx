@@ -10,6 +10,7 @@ import { getCellValue, isFieldEditable } from "./candidate-field-value";
 import { CellDisplay } from "./cell-display";
 import { CellEditor } from "./cell-editor";
 import { RelationCellEditor } from "./relation-cell-editor";
+import { MktListCellEditor } from "./mkt-list-cell-editor";
 
 interface GridCellProps {
   candidate: CandidateDto;
@@ -20,6 +21,7 @@ interface GridCellProps {
   isEditing: boolean;
   pipelineStages: PipelineStageDto[];
   users: UserLookupDto[];
+  allMktLists: { id: string; name: string }[];
   onActivate: (extend: boolean) => void;
   onStartEdit: () => void;
   onCommit: (value: unknown) => void;
@@ -35,6 +37,7 @@ function GridCellImpl({
   isEditing,
   pipelineStages,
   users,
+  allMktLists,
   onActivate,
   onStartEdit,
   onCommit,
@@ -79,6 +82,30 @@ function GridCellImpl({
           <CellDisplay candidate={candidate} field={field} />
         </div>
       </RelationCellEditor>
+    );
+  }
+
+  if (field.fieldType === "MKT_LIST") {
+    return (
+      <MktListCellEditor
+        candidate={candidate}
+        allMktLists={allMktLists}
+        isOpen={isEditing}
+        onClose={onCancelEdit}
+      >
+        <div
+          style={{ width }}
+          className={cn(
+            "flex h-8 shrink-0 cursor-pointer items-center overflow-hidden border-b border-r px-2 text-sm",
+            isActive && "ring-2 ring-inset ring-primary",
+            isInRange && !isActive && "bg-primary/10",
+          )}
+          onMouseDown={(e) => onActivate(e.shiftKey)}
+          onDoubleClick={() => onStartEdit()}
+        >
+          <CellDisplay candidate={candidate} field={field} />
+        </div>
+      </MktListCellEditor>
     );
   }
 
