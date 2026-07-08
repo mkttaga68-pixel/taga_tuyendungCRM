@@ -111,7 +111,7 @@ export default function CampaignsPage() {
                 <TableHead>Tên chiến dịch</TableHead>
                 <TableHead>Người gửi</TableHead>
                 <TableHead>Trạng thái</TableHead>
-                <TableHead className="text-right">Emails</TableHead>
+                <TableHead className="text-right">Bước</TableHead>
                 <TableHead className="text-right">Đăng ký</TableHead>
                 <TableHead></TableHead>
               </TableRow>
@@ -139,9 +139,11 @@ export default function CampaignsPage() {
               ) : (
                 campaigns.map((c) => {
                   const canActivate =
-                    (c.status === "DRAFT" || c.status === "PAUSED") && c.emailCount > 0;
+                    (c.status === "DRAFT" || c.status === "PAUSED") &&
+                    c.opportunitySteps.length > 0;
                   const needsEmail =
-                    (c.status === "DRAFT" || c.status === "PAUSED") && c.emailCount === 0;
+                    (c.status === "DRAFT" || c.status === "PAUSED") &&
+                    c.opportunitySteps.length === 0;
 
                   return (
                     <TableRow key={c.id}>
@@ -164,7 +166,7 @@ export default function CampaignsPage() {
                           {STATUS_LABELS[c.status] ?? c.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right tabular-nums">{c.emailCount}</TableCell>
+                      <TableCell className="text-right tabular-nums">{c.opportunitySteps.length}</TableCell>
                       <TableCell className="text-right tabular-nums">{c.enrollmentCount}</TableCell>
                       <TableCell>
                         <div className="flex justify-end gap-1">
@@ -188,7 +190,7 @@ export default function CampaignsPage() {
                                 </span>
                               </TooltipTrigger>
                               <TooltipContent>
-                                Thêm ít nhất 1 email trước khi kích hoạt
+                                Thêm ít nhất 1 bước xử lý cơ hội trước khi kích hoạt
                               </TooltipContent>
                             </Tooltip>
                           )}

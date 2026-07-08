@@ -174,6 +174,13 @@ export function enrollContactsToCampaign(campaignId: string, input: EnrollContac
   });
 }
 
+export function updateMktEnrollmentStep(campaignId: string, enrollmentId: string, step: number) {
+  return apiRequest<MktCampaignEnrollmentDto>(`/mkt/campaigns/${campaignId}/enrollments/${enrollmentId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ step }),
+  });
+}
+
 // ---- Dashboard ----
 export function getMktDashboard() {
   return apiRequest<MktDashboardStats>("/mkt/dashboard");

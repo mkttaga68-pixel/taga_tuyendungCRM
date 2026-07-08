@@ -15,12 +15,14 @@ import {
   updateMktCampaignEmailSchema,
   reorderMktCampaignEmailSchema,
   enrollContactSchema,
+  updateEnrollmentStepSchema,
   type CreateMktCampaignInput,
   type UpdateMktCampaignInput,
   type CreateMktCampaignEmailInput,
   type UpdateMktCampaignEmailInput,
   type ReorderMktCampaignEmailInput,
   type EnrollContactInput,
+  type UpdateEnrollmentStepInput,
   type AccessTokenPayload,
 } from "@taga-crm/shared";
 import { MktCampaignsService } from "./mkt-campaigns.service";
@@ -125,5 +127,14 @@ export class MktCampaignsController {
     @Body(new ZodValidationPipe(enrollContactSchema)) body: EnrollContactInput,
   ) {
     return this.service.enrollContacts(campaignId, body);
+  }
+
+  @Patch(":id/enrollments/:enrollmentId")
+  updateEnrollmentStep(
+    @Param("id") campaignId: string,
+    @Param("enrollmentId") enrollmentId: string,
+    @Body(new ZodValidationPipe(updateEnrollmentStepSchema)) body: UpdateEnrollmentStepInput,
+  ) {
+    return this.service.updateEnrollmentStep(campaignId, enrollmentId, body.step);
   }
 }

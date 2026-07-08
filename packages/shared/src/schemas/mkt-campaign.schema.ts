@@ -107,6 +107,11 @@ export const enrollContactSchema = z.object({
 });
 export type EnrollContactInput = z.infer<typeof enrollContactSchema>;
 
+export const updateEnrollmentStepSchema = z.object({
+  step: z.number().int().min(0),
+});
+export type UpdateEnrollmentStepInput = z.infer<typeof updateEnrollmentStepSchema>;
+
 export interface MktCampaignEnrollmentDto {
   id: string;
   contactId: string;

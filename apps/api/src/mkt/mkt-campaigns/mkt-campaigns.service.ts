@@ -149,8 +149,8 @@ export class MktCampaignsService {
 
   async activate(id: string): Promise<MktCampaignDto> {
     const campaign = await this.findOne(id);
-    if (campaign.emailCount === 0) {
-      throw new BadRequestException("Campaign cần ít nhất 1 email trước khi kích hoạt");
+    if (campaign.opportunitySteps.length === 0) {
+      throw new BadRequestException("Campaign cần ít nhất 1 bước xử lý cơ hội trước khi kích hoạt");
     }
     const r = await this.prisma.mktCampaign.update({
       where: { id },
@@ -293,6 +293,40 @@ export class MktCampaignsService {
       enrolledAt: r.enrolledAt.toISOString(),
       completedAt: r.completedAt?.toISOString() ?? null,
     }));
+  }
+
+  async updateEnrollmentStep(
+    campaignId: string,
+    enrollmentId: string,
+    step: number,
+  ): Promise<MktCampaignEnrollmentDto> {
+    const campaign = await this.findOne(campaignId);
+    const row = await this.prisma.mktCampaignEnrollment.findFirst({
+      where: { id: enrollmentId, campaignId },
+      include: { contact: { select: { fullName: true, email: true } } },
+    });
+    if (!row) throw new NotFoundException("Không tìm thấy enrollment");
+
+    const maxStep = Math.max(0, campaign.opportunitySteps.length - 1);
+    const clampedStep = Math.max(0, Math.min(step, maxStep));
+
+    const updated = await this.prisma.mktCampaignEnrollment.update({
+      where: { id: enrollmentId },
+      data: { currentStep: clampedStep },
+      include: { contact: { select: { fullName: true, email: true } } },
+    });
+
+    return {
+      id: updated.id,
+      contactId: updated.contactId,
+      contactName: updated.contact.fullName,
+      contactEmail: updated.contact.email,
+      campaignId: updated.campaignId,
+      currentStep: updated.currentStep,
+      status: updated.status as MktCampaignEnrollmentDto["status"],
+      enrolledAt: updated.enrolledAt.toISOString(),
+      completedAt: updated.completedAt?.toISOString() ?? null,
+    };
   }
 
   async enrollContacts(campaignId: string, input: EnrollContactInput): Promise<{ enrolled: number }> {

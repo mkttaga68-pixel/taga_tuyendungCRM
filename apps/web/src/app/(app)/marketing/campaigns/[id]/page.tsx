@@ -6,38 +6,26 @@ import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
-  Plus,
-  Trash2,
-  GripVertical,
-  ChevronDown,
-  ChevronUp,
+  ChevronLeft,
+  ChevronRight,
+  LayoutList,
+  LayoutDashboard,
+  Users,
   Play,
   Pause,
-  Users,
 } from "lucide-react";
 import {
   getMktCampaign,
-  listMktCampaignEmails,
-  addMktCampaignEmail,
-  updateMktCampaignEmail,
-  deleteMktCampaignEmail,
-  activateMktCampaign,
-  pauseMktCampaign,
   listMktCampaignEnrollments,
   enrollContactsToCampaign,
+  updateMktEnrollmentStep,
+  activateMktCampaign,
+  pauseMktCampaign,
   listMktContacts,
 } from "@/lib/mkt-api";
-import type {
-  MktCampaignEmailDto,
-  CreateMktCampaignEmailInput,
-  MktSendWindow,
-  MktDelayUnit,
-} from "@taga-crm/shared";
+import type { MktCampaignEnrollmentDto } from "@taga-crm/shared";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -45,34 +33,17 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
-const DELAY_UNIT_LABELS: Record<MktDelayUnit, string> = {
-  MINUTES: "phút",
-  HOURS: "giờ",
-  DAYS: "ngày",
-  WEEKS: "tuần",
-};
-
-const DAY_NAMES = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+const COLUMN_COLORS = [
+  "#1a6b3c",
+  "#0d5c8a",
+  "#7c5c00",
+  "#7a2620",
+  "#4a2785",
+  "#1a5f6b",
+  "#3d4a00",
+];
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: "Nháp",
@@ -83,236 +54,67 @@ const STATUS_LABELS: Record<string, string> = {
   UNSUBSCRIBED: "Đã hủy",
   FAILED: "Thất bại",
 };
-const ENROLLMENT_STATUS_VARIANTS: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
-  ACTIVE: "default",
-  COMPLETED: "secondary",
-  UNSUBSCRIBED: "destructive",
-  FAILED: "destructive",
-};
 
-function EmailStepCard({
-  email,
-  index,
-  total,
-  onDelete,
-  onEdit,
-  onMoveUp,
-  onMoveDown,
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return (parts[0] ?? "?").slice(0, 2).toUpperCase();
+  return ((parts[0]?.[0] ?? "") + (parts[parts.length - 1]?.[0] ?? "")).toUpperCase();
+}
+
+function daysSince(dateStr: string) {
+  const d = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000);
+  if (d === 0) return "hôm nay";
+  return `${d} ngày`;
+}
+
+function EnrollmentCard({
+  enrollment,
+  canMoveBack,
+  canMoveForward,
+  onMoveBack,
+  onMoveForward,
+  moving,
 }: {
-  email: MktCampaignEmailDto;
-  index: number;
-  total: number;
-  onDelete: () => void;
-  onEdit: () => void;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
+  enrollment: MktCampaignEnrollmentDto;
+  canMoveBack: boolean;
+  canMoveForward: boolean;
+  onMoveBack: () => void;
+  onMoveForward: () => void;
+  moving: boolean;
 }) {
-  const sw = email.sendWindow as MktSendWindow;
   return (
-    <div className="rounded-lg border bg-card">
-      <div className="flex items-start gap-3 p-4">
-        <div className="flex flex-col gap-1 mt-0.5">
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-5 w-5"
-            onClick={onMoveUp}
-            disabled={index === 0}
-          >
-            <ChevronUp className="h-3 w-3" />
-          </Button>
-          <GripVertical className="h-4 w-4 text-muted-foreground" />
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-5 w-5"
-            onClick={onMoveDown}
-            disabled={index === total - 1}
-          >
-            <ChevronDown className="h-3 w-3" />
-          </Button>
-        </div>
-        <div className="flex h-8 w-8 items-center justify-center rounded-full border bg-muted text-sm font-bold flex-shrink-0">
-          {email.position}
+    <div className="bg-white dark:bg-zinc-900 rounded-lg border shadow-sm p-3 flex flex-col gap-2">
+      <div className="flex items-center gap-2">
+        <div className="h-8 w-8 rounded-full bg-[#1e3a6e] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+          {initials(enrollment.contactName)}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold truncate">{email.subject}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {email.position === 1
-              ? "Gửi ngay lập tức"
-              : `Chờ ${email.delayValue} ${DELAY_UNIT_LABELS[email.delayUnit]} sau bước trước`}
-            {" · "}
-            Giờ gửi: {sw.from}–{sw.to}
-            {" · "}
-            Ngày: {sw.days.map((d) => DAY_NAMES[d]).join(", ")}
-          </p>
+          <p className="text-sm font-medium truncate">{enrollment.contactName}</p>
+          <p className="text-xs text-muted-foreground truncate">{enrollment.contactEmail}</p>
         </div>
-        <div className="flex gap-4 text-xs text-muted-foreground tabular-nums flex-shrink-0">
-          <div className="text-center">
-            <p className="font-semibold text-foreground">{email.stats.sent}</p>
-            <p>Đã gửi</p>
-          </div>
-          <div className="text-center">
-            <p className="font-semibold text-foreground">{email.stats.openRate}%</p>
-            <p>Open</p>
-          </div>
-          <div className="text-center">
-            <p className="font-semibold text-foreground">{email.stats.ctr}%</p>
-            <p>CTR</p>
-          </div>
-        </div>
-        <div className="flex gap-1 flex-shrink-0">
-          <Button size="sm" variant="outline" onClick={onEdit}>Sửa</Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-8 w-8 text-destructive hover:text-destructive"
-            onClick={onDelete}
+      </div>
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-muted-foreground">{daysSince(enrollment.enrolledAt)}</span>
+        <div className="flex gap-1">
+          <button
+            disabled={!canMoveBack || moving}
+            onClick={onMoveBack}
+            className="h-6 w-6 rounded flex items-center justify-center border text-xs hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Lùi về bước trước"
           >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </button>
+          <button
+            disabled={!canMoveForward || moving}
+            onClick={onMoveForward}
+            className="h-6 w-6 rounded flex items-center justify-center border text-xs hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Chuyển sang bước tiếp theo"
+          >
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
     </div>
-  );
-}
-
-const DEFAULT_SEND_WINDOW: MktSendWindow = {
-  from: "08:00",
-  to: "20:00",
-  days: [1, 2, 3, 4, 5],
-  tz: "Asia/Ho_Chi_Minh",
-};
-
-function EmailStepDialog({
-  open,
-  onClose,
-  initial,
-  onSave,
-  loading,
-  isFirst,
-}: {
-  open: boolean;
-  onClose: () => void;
-  initial?: MktCampaignEmailDto;
-  onSave: (v: CreateMktCampaignEmailInput) => void;
-  loading: boolean;
-  isFirst: boolean;
-}) {
-  const [subject, setSubject] = useState(initial?.subject ?? "");
-  const [bodyHtml, setBodyHtml] = useState(initial?.bodyHtml ?? "");
-  const [delayValue, setDelayValue] = useState(initial?.delayValue ?? 1);
-  const [delayUnit, setDelayUnit] = useState<MktDelayUnit>(initial?.delayUnit ?? "DAYS");
-  const [sendWindow, setSendWindow] = useState<MktSendWindow>(
-    (initial?.sendWindow as MktSendWindow) ?? DEFAULT_SEND_WINDOW,
-  );
-
-  const toggleDay = (d: number) => {
-    setSendWindow((sw) => ({
-      ...sw,
-      days: sw.days.includes(d) ? sw.days.filter((x) => x !== d) : [...sw.days, d].sort(),
-    }));
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{initial ? "Sửa email" : "Thêm email vào sequence"}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <Label>Tiêu đề email *</Label>
-            <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Chào mừng bạn đến với Taga!" />
-          </div>
-          <div>
-            <Label>Nội dung email (HTML) *</Label>
-            <Textarea
-              value={bodyHtml}
-              onChange={(e) => setBodyHtml(e.target.value)}
-              placeholder="<p>Xin chào {{fullName}},</p><p>Cảm ơn bạn đã...</p>"
-              rows={8}
-              className="font-mono text-xs"
-            />
-            <p className="text-xs text-muted-foreground mt-1">Biến: {"{{"} fullName {"}}"}, {"{{"} email {"}}"}</p>
-          </div>
-          {!isFirst && (
-            <div>
-              <Label>Thời gian chờ sau bước trước</Label>
-              <div className="flex gap-2 mt-1">
-                <Input
-                  type="number"
-                  min={0}
-                  value={delayValue}
-                  onChange={(e) => setDelayValue(Number(e.target.value))}
-                  className="w-24"
-                />
-                <Select value={delayUnit} onValueChange={(v) => setDelayUnit(v as MktDelayUnit)}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="MINUTES">Phút</SelectItem>
-                    <SelectItem value="HOURS">Giờ</SelectItem>
-                    <SelectItem value="DAYS">Ngày</SelectItem>
-                    <SelectItem value="WEEKS">Tuần</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
-          <div>
-            <Label>Cửa sổ gửi email</Label>
-            <div className="flex gap-2 mt-1 items-center flex-wrap">
-              <span className="text-sm">Từ</span>
-              <Input
-                type="time"
-                value={sendWindow.from}
-                onChange={(e) => setSendWindow((sw) => ({ ...sw, from: e.target.value }))}
-                className="w-28"
-              />
-              <span className="text-sm">đến</span>
-              <Input
-                type="time"
-                value={sendWindow.to}
-                onChange={(e) => setSendWindow((sw) => ({ ...sw, to: e.target.value }))}
-                className="w-28"
-              />
-              <span className="text-sm ml-2">Ngày:</span>
-              {DAY_NAMES.map((name, d) => (
-                <button
-                  key={d}
-                  type="button"
-                  className={`h-7 w-7 rounded-full text-xs font-medium border transition-colors ${sendWindow.days.includes(d) ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground"}`}
-                  onClick={() => toggleDay(d)}
-                >
-                  {name}
-                </button>
-              ))}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Timezone: Asia/Ho_Chi_Minh. Nếu giờ lên lịch nằm ngoài cửa sổ, email sẽ tự dời sang slot tiếp theo hợp lệ.</p>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={loading}>Hủy</Button>
-          <Button
-            disabled={!subject.trim() || !bodyHtml.trim() || loading}
-            onClick={() =>
-              onSave({
-                subject,
-                bodyHtml,
-                delayValue: isFirst ? 0 : delayValue,
-                delayUnit,
-                sendWindow,
-                condition: {},
-              })
-            }
-          >
-            {loading ? "Đang lưu..." : "Lưu"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }
 
@@ -320,50 +122,42 @@ export default function CampaignDetailPage() {
   const { id } = useParams<{ id: string }>();
   const qc = useQueryClient();
 
-  const { data: campaign } = useQuery({ queryKey: ["mkt-campaign", id], queryFn: () => getMktCampaign(id) });
-  const { data: emails = [] } = useQuery({ queryKey: ["mkt-campaign-emails", id], queryFn: () => listMktCampaignEmails(id) });
-  const { data: enrollments = [] } = useQuery({ queryKey: ["mkt-campaign-enrollments", id], queryFn: () => listMktCampaignEnrollments(id) });
-
-  const [addOpen, setAddOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<MktCampaignEmailDto | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<MktCampaignEmailDto | null>(null);
+  const [view, setView] = useState<"kanban" | "list">("kanban");
   const [enrollOpen, setEnrollOpen] = useState(false);
   const [selectedContactIds, setSelectedContactIds] = useState<string[]>([]);
+  const [movingIds, setMovingIds] = useState<Set<string>>(new Set());
+
+  const { data: campaign, isLoading: campLoading } = useQuery({
+    queryKey: ["mkt-campaign", id],
+    queryFn: () => getMktCampaign(id),
+  });
+
+  const { data: enrollments = [] } = useQuery({
+    queryKey: ["mkt-campaign-enrollments", id],
+    queryFn: () => listMktCampaignEnrollments(id),
+  });
 
   const { data: contacts } = useQuery({
     queryKey: ["mkt-contacts-for-enroll"],
-    queryFn: () => listMktContacts({ limit: 200 }),
+    queryFn: () => listMktContacts({ limit: 500 }),
     enabled: enrollOpen,
-  });
-
-  const addEmailMutation = useMutation({
-    mutationFn: (input: CreateMktCampaignEmailInput) => addMktCampaignEmail(id, input),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["mkt-campaign-emails", id] }); qc.invalidateQueries({ queryKey: ["mkt-campaign", id] }); setAddOpen(false); toast.success("Đã thêm email"); },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const updateEmailMutation = useMutation({
-    mutationFn: ({ emailId, input }: { emailId: string; input: CreateMktCampaignEmailInput }) =>
-      updateMktCampaignEmail(id, emailId, input),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["mkt-campaign-emails", id] }); setEditTarget(null); toast.success("Đã cập nhật email"); },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const deleteEmailMutation = useMutation({
-    mutationFn: (emailId: string) => deleteMktCampaignEmail(id, emailId),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["mkt-campaign-emails", id] }); qc.invalidateQueries({ queryKey: ["mkt-campaign", id] }); setDeleteTarget(null); toast.success("Đã xóa email"); },
-    onError: (e: Error) => toast.error(e.message),
   });
 
   const activateMutation = useMutation({
     mutationFn: () => activateMktCampaign(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["mkt-campaign", id] }); toast.success("Đã kích hoạt chiến dịch"); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["mkt-campaign", id] });
+      toast.success("Đã kích hoạt chiến dịch");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const pauseMutation = useMutation({
     mutationFn: () => pauseMktCampaign(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["mkt-campaign", id] }); toast.success("Đã tạm dừng chiến dịch"); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["mkt-campaign", id] });
+      toast.success("Đã tạm dừng chiến dịch");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -374,205 +168,376 @@ export default function CampaignDetailPage() {
       qc.invalidateQueries({ queryKey: ["mkt-campaign", id] });
       setEnrollOpen(false);
       setSelectedContactIds([]);
-      toast.success(`Đã enroll ${res.enrolled} contacts`);
+      toast.success(`Đã thêm ${res.enrolled} ứng viên`);
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const handleMoveUp = async (email: MktCampaignEmailDto) => {
-    if (email.position <= 1) return;
-    const { reorderMktCampaignEmail } = await import("@/lib/mkt-api");
-    await reorderMktCampaignEmail(id, email.id, email.position - 1);
-    qc.invalidateQueries({ queryKey: ["mkt-campaign-emails", id] });
-  };
+  const moveStepMutation = useMutation({
+    mutationFn: ({ enrollmentId, step }: { enrollmentId: string; step: number }) =>
+      updateMktEnrollmentStep(id, enrollmentId, step),
+    onMutate: ({ enrollmentId }) => {
+      setMovingIds((s) => new Set(s).add(enrollmentId));
+    },
+    onSettled: (_data, _err, { enrollmentId }) => {
+      setMovingIds((s) => {
+        const next = new Set(s);
+        next.delete(enrollmentId);
+        return next;
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["mkt-campaign-enrollments", id] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
-  const handleMoveDown = async (email: MktCampaignEmailDto) => {
-    if (email.position >= emails.length) return;
-    const { reorderMktCampaignEmail } = await import("@/lib/mkt-api");
-    await reorderMktCampaignEmail(id, email.id, email.position + 1);
-    qc.invalidateQueries({ queryKey: ["mkt-campaign-emails", id] });
-  };
-
-  if (!campaign) {
-    return <div className="h-full flex items-center justify-center p-6 text-muted-foreground">Đang tải...</div>;
+  if (campLoading) {
+    return (
+      <div className="h-full flex items-center justify-center text-muted-foreground">
+        Đang tải...
+      </div>
+    );
   }
 
+  if (!campaign) {
+    return (
+      <div className="h-full flex items-center justify-center text-muted-foreground">
+        Không tìm thấy chiến dịch
+      </div>
+    );
+  }
+
+  const steps = campaign.opportunitySteps;
+  const enrolledContactIds = new Set(enrollments.map((e) => e.contactId));
+
+  // Group enrollments by currentStep (clamp to valid range)
+  const byStep: MktCampaignEnrollmentDto[][] = steps.map(() => []);
+  for (const enrollment of enrollments) {
+    const idx = steps.length > 0 ? Math.min(Math.max(enrollment.currentStep, 0), steps.length - 1) : 0;
+    if (byStep[idx]) {
+      byStep[idx].push(enrollment);
+    }
+  }
+
+  const canActivate =
+    (campaign.status === "DRAFT" || campaign.status === "PAUSED") && steps.length > 0;
+  const needsSteps =
+    (campaign.status === "DRAFT" || campaign.status === "PAUSED") && steps.length === 0;
+
   return (
-    <div className="h-full overflow-auto p-6 space-y-4">
-      <div className="flex items-center gap-3 flex-wrap">
-        <Button variant="ghost" size="icon" asChild>
-          <Link href="/marketing/campaigns"><ArrowLeft className="h-4 w-4" /></Link>
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-semibold tracking-tight">{campaign.name}</h1>
-          <p className="text-sm text-muted-foreground">Từ: {campaign.fromName} &lt;{campaign.fromEmail}&gt;</p>
+    <div className="h-full flex flex-col overflow-hidden">
+      {/* ── Header ── */}
+      <div className="flex-none px-6 pt-5 pb-4 border-b space-y-3">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" asChild className="flex-none">
+            <Link href="/marketing/campaigns">
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </Button>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl font-semibold tracking-tight truncate">{campaign.name}</h1>
+              <Badge variant={campaign.status === "ACTIVE" ? "default" : "secondary"}>
+                {STATUS_LABELS[campaign.status] ?? campaign.status}
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Gửi từ: {campaign.fromName} &lt;{campaign.fromEmail}&gt;
+              {" · "}
+              {steps.length} bước · {enrollments.length} ứng viên
+            </p>
+          </div>
+
+          <div className="flex gap-2 flex-none">
+            {canActivate && (
+              <Button
+                size="sm"
+                onClick={() => activateMutation.mutate()}
+                disabled={activateMutation.isPending}
+              >
+                <Play className="mr-1.5 h-3.5 w-3.5" />
+                Kích hoạt
+              </Button>
+            )}
+            {needsSteps && (
+              <Button size="sm" variant="outline" disabled title="Thêm ít nhất 1 bước xử lý cơ hội">
+                <Play className="mr-1.5 h-3.5 w-3.5" />
+                Kích hoạt
+              </Button>
+            )}
+            {campaign.status === "ACTIVE" && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => pauseMutation.mutate()}
+                disabled={pauseMutation.isPending}
+              >
+                <Pause className="mr-1.5 h-3.5 w-3.5" />
+                Tạm dừng
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setEnrollOpen(true)}
+              disabled={campaign.status !== "ACTIVE"}
+              title={campaign.status !== "ACTIVE" ? "Kích hoạt chiến dịch trước khi thêm ứng viên" : undefined}
+            >
+              <Users className="mr-1.5 h-3.5 w-3.5" />
+              Thêm ứng viên
+            </Button>
+          </div>
         </div>
-        <Badge variant={campaign.status === "ACTIVE" ? "default" : "secondary"}>
-          {STATUS_LABELS[campaign.status] ?? campaign.status}
-        </Badge>
-        {campaign.status === "DRAFT" || campaign.status === "PAUSED" ? (
-          <Button onClick={() => activateMutation.mutate()} disabled={activateMutation.isPending || campaign.emailCount === 0}>
-            <Play className="mr-2 h-4 w-4" /> Kích hoạt
-          </Button>
-        ) : campaign.status === "ACTIVE" ? (
-          <Button variant="outline" onClick={() => pauseMutation.mutate()} disabled={pauseMutation.isPending}>
-            <Pause className="mr-2 h-4 w-4" /> Tạm dừng
-          </Button>
-        ) : null}
-        {campaign.status === "ACTIVE" && (
-          <Button variant="outline" onClick={() => setEnrollOpen(true)}>
-            <Users className="mr-2 h-4 w-4" /> Enroll contacts
-          </Button>
-        )}
+
+        {/* View toggle */}
+        <div className="flex items-center gap-2">
+          <div className="inline-flex border rounded-md overflow-hidden">
+            <button
+              onClick={() => setView("kanban")}
+              className={`px-3 py-1.5 text-xs flex items-center gap-1.5 transition-colors ${
+                view === "kanban"
+                  ? "bg-[#1e3a6e] text-white"
+                  : "hover:bg-muted text-muted-foreground"
+              }`}
+            >
+              <LayoutDashboard className="h-3.5 w-3.5" />
+              Kanban
+            </button>
+            <button
+              onClick={() => setView("list")}
+              className={`px-3 py-1.5 text-xs flex items-center gap-1.5 transition-colors border-l ${
+                view === "list"
+                  ? "bg-[#1e3a6e] text-white"
+                  : "hover:bg-muted text-muted-foreground"
+              }`}
+            >
+              <LayoutList className="h-3.5 w-3.5" />
+              Danh sách
+            </button>
+          </div>
+        </div>
       </div>
 
-      <Tabs defaultValue="sequence">
-        <TabsList>
-          <TabsTrigger value="sequence">Chuỗi email ({campaign.emailCount})</TabsTrigger>
-          <TabsTrigger value="enrollments">Enrollments ({campaign.enrollmentCount})</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="sequence" className="mt-4 space-y-3">
-          {emails.length === 0 ? (
-            <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
-              Chưa có email nào trong sequence. Thêm email đầu tiên.
-            </div>
-          ) : (
-            emails.map((email, i) => (
-              <EmailStepCard
-                key={email.id}
-                email={email}
-                index={i}
-                total={emails.length}
-                onDelete={() => setDeleteTarget(email)}
-                onEdit={() => setEditTarget(email)}
-                onMoveUp={() => handleMoveUp(email)}
-                onMoveDown={() => handleMoveDown(email)}
-              />
-            ))
-          )}
-          <Button variant="outline" className="w-full" onClick={() => setAddOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" /> Thêm email vào sequence
-          </Button>
-        </TabsContent>
-
-        <TabsContent value="enrollments" className="mt-4">
-          {enrollments.length === 0 ? (
-            <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
-              Chưa có ai enroll vào chiến dịch này.
-              {campaign.status !== "ACTIVE" && " Kích hoạt chiến dịch trước khi enroll contacts."}
-            </div>
-          ) : (
-            <div className="rounded-lg border overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="text-left px-4 py-2">Contact</th>
-                    <th className="text-left px-4 py-2">Trạng thái</th>
-                    <th className="text-right px-4 py-2">Bước hiện tại</th>
-                    <th className="text-right px-4 py-2">Ngày enroll</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {enrollments.map((e) => (
-                    <tr key={e.id} className="border-t hover:bg-muted/30">
-                      <td className="px-4 py-2">
-                        <p className="font-medium">{e.contactName}</p>
-                        <p className="text-xs text-muted-foreground">{e.contactEmail}</p>
-                      </td>
-                      <td className="px-4 py-2">
-                        <Badge variant={ENROLLMENT_STATUS_VARIANTS[e.status] ?? "secondary"}>
-                          {STATUS_LABELS[e.status] ?? e.status}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-2 text-right tabular-nums">{e.currentStep}/{campaign.emailCount}</td>
-                      <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">
-                        {new Date(e.enrolledAt).toLocaleDateString("vi-VN")}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
-
-      <EmailStepDialog
-        open={addOpen}
-        onClose={() => setAddOpen(false)}
-        onSave={(d) => addEmailMutation.mutate(d)}
-        loading={addEmailMutation.isPending}
-        isFirst={emails.length === 0}
-      />
-
-      {editTarget && (
-        <EmailStepDialog
-          open={!!editTarget}
-          onClose={() => setEditTarget(null)}
-          initial={editTarget}
-          onSave={(d) => updateEmailMutation.mutate({ emailId: editTarget.id, input: d })}
-          loading={updateEmailMutation.isPending}
-          isFirst={editTarget.position === 1}
-        />
-      )}
-
-      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Xóa email khỏi sequence?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Email &quot;{deleteTarget?.subject}&quot; sẽ bị xóa. Các email sau sẽ được đánh số lại.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => deleteTarget && deleteEmailMutation.mutate(deleteTarget.id)}
-            >
-              Xóa
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Enroll dialog */}
-      <Dialog open={enrollOpen} onOpenChange={(o) => !o && setEnrollOpen(false)}>
-        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Enroll contacts vào chiến dịch</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">Chọn contacts để bắt đầu nhận email sequence.</p>
-          <div className="space-y-1 max-h-64 overflow-y-auto border rounded-md p-2">
-            {(contacts?.data ?? []).map((c) => {
-              const selected = selectedContactIds.includes(c.id);
+      {/* ── Main area ── */}
+      {steps.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center gap-2 text-muted-foreground">
+          <p className="text-base">Chiến dịch chưa có bước xử lý cơ hội nào.</p>
+          <p className="text-sm">Sửa chiến dịch để thêm các bước trước khi sử dụng.</p>
+        </div>
+      ) : view === "kanban" ? (
+        /* ── Kanban ── */
+        <div className="flex-1 overflow-x-auto overflow-y-hidden">
+          <div className="flex h-full gap-3 p-4" style={{ width: `max(100%, ${steps.length * 296 + 32}px)` }}>
+            {steps.map((stepName, colIdx) => {
+              const color = COLUMN_COLORS[colIdx % COLUMN_COLORS.length] ?? "#1a6b3c";
+              const colItems = byStep[colIdx] ?? [];
               return (
-                <button
-                  key={c.id}
-                  type="button"
-                  className={`w-full text-left rounded px-2 py-1.5 text-sm flex items-center gap-2 transition-colors ${selected ? "bg-primary/10" : "hover:bg-muted"}`}
-                  onClick={() =>
-                    setSelectedContactIds((prev) =>
-                      selected ? prev.filter((x) => x !== c.id) : [...prev, c.id],
-                    )
-                  }
-                >
-                  <div className={`h-3.5 w-3.5 rounded border flex-shrink-0 ${selected ? "bg-primary border-primary" : "border-muted-foreground"}`} />
-                  <span className="font-medium">{c.fullName}</span>
-                  <span className="text-muted-foreground">{c.email}</span>
-                </button>
+                <div key={colIdx} className="flex flex-col w-[280px] flex-none h-full">
+                  <div
+                    className="rounded-t-lg px-3 py-2.5 flex items-center gap-2"
+                    style={{ backgroundColor: color }}
+                  >
+                    <span className="text-white text-sm font-semibold flex-1 truncate">
+                      {stepName}
+                    </span>
+                    <span className="bg-white/25 text-white text-xs font-bold rounded-full px-2 py-0.5 tabular-nums min-w-[24px] text-center">
+                      {colItems.length}
+                    </span>
+                  </div>
+                  <div className="flex-1 overflow-y-auto bg-zinc-50 dark:bg-zinc-950/50 border border-t-0 rounded-b-lg p-2 space-y-2">
+                    {colItems.map((enrollment) => (
+                      <EnrollmentCard
+                        key={enrollment.id}
+                        enrollment={enrollment}
+                        canMoveBack={colIdx > 0}
+                        canMoveForward={colIdx < steps.length - 1}
+                        moving={movingIds.has(enrollment.id)}
+                        onMoveBack={() =>
+                          moveStepMutation.mutate({
+                            enrollmentId: enrollment.id,
+                            step: colIdx - 1,
+                          })
+                        }
+                        onMoveForward={() =>
+                          moveStepMutation.mutate({
+                            enrollmentId: enrollment.id,
+                            step: colIdx + 1,
+                          })
+                        }
+                      />
+                    ))}
+                    {colItems.length === 0 && (
+                      <p className="text-xs text-muted-foreground text-center py-6">
+                        Không có ứng viên
+                      </p>
+                    )}
+                  </div>
+                </div>
               );
             })}
           </div>
-          <p className="text-xs text-muted-foreground">Đã chọn: {selectedContactIds.length} contacts</p>
+        </div>
+      ) : (
+        /* ── List ── */
+        <div className="flex-1 overflow-auto p-4">
+          <div className="rounded-lg border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="text-left px-4 py-2.5 font-medium">Ứng viên</th>
+                  <th className="text-left px-4 py-2.5 font-medium">Bước hiện tại</th>
+                  <th className="text-left px-4 py-2.5 font-medium">Trạng thái</th>
+                  <th className="text-left px-4 py-2.5 font-medium">Đăng ký</th>
+                  <th className="text-right px-4 py-2.5 font-medium">Chuyển bước</th>
+                </tr>
+              </thead>
+              <tbody>
+                {enrollments.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-12 text-center text-muted-foreground">
+                      Chưa có ứng viên nào trong chiến dịch.
+                    </td>
+                  </tr>
+                ) : (
+                  enrollments.map((e) => {
+                    const stepIdx = steps.length > 0
+                      ? Math.min(Math.max(e.currentStep, 0), steps.length - 1)
+                      : 0;
+                    const stepName = steps[stepIdx] ?? `Bước ${stepIdx + 1}`;
+                    const color = COLUMN_COLORS[stepIdx % COLUMN_COLORS.length] ?? "#1a6b3c";
+                    return (
+                      <tr key={e.id} className="border-t hover:bg-muted/30">
+                        <td className="px-4 py-2.5">
+                          <p className="font-medium">{e.contactName}</p>
+                          <p className="text-xs text-muted-foreground">{e.contactEmail}</p>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <span
+                            className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium text-white"
+                            style={{ backgroundColor: color }}
+                          >
+                            {stepName}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <Badge
+                            variant={
+                              e.status === "ACTIVE"
+                                ? "default"
+                                : e.status === "COMPLETED"
+                                ? "secondary"
+                                : "destructive"
+                            }
+                          >
+                            {STATUS_LABELS[e.status] ?? e.status}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-2.5 text-muted-foreground text-xs">
+                          {new Date(e.enrolledAt).toLocaleDateString("vi-VN")}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <div className="flex justify-end gap-1">
+                            <button
+                              disabled={stepIdx === 0 || movingIds.has(e.id)}
+                              onClick={() =>
+                                moveStepMutation.mutate({
+                                  enrollmentId: e.id,
+                                  step: stepIdx - 1,
+                                })
+                              }
+                              className="h-7 w-7 rounded flex items-center justify-center border hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
+                              title="Lùi bước"
+                            >
+                              <ChevronLeft className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              disabled={stepIdx >= steps.length - 1 || movingIds.has(e.id)}
+                              onClick={() =>
+                                moveStepMutation.mutate({
+                                  enrollmentId: e.id,
+                                  step: stepIdx + 1,
+                                })
+                              }
+                              className="h-7 w-7 rounded flex items-center justify-center border hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
+                              title="Chuyển bước"
+                            >
+                              <ChevronRight className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Enroll dialog ── */}
+      <Dialog open={enrollOpen} onOpenChange={(o) => !o && setEnrollOpen(false)}>
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Thêm ứng viên vào chiến dịch</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Chọn contacts để bắt đầu từ bước đầu tiên:{" "}
+            <strong>{steps[0] ?? ""}</strong>
+          </p>
+          <div className="space-y-1 max-h-64 overflow-y-auto border rounded-md p-2">
+            {(contacts?.data ?? [])
+              .filter((c) => !enrolledContactIds.has(c.id))
+              .map((c) => {
+                const selected = selectedContactIds.includes(c.id);
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className={`w-full text-left rounded px-2 py-1.5 text-sm flex items-center gap-2 transition-colors ${
+                      selected ? "bg-primary/10" : "hover:bg-muted"
+                    }`}
+                    onClick={() =>
+                      setSelectedContactIds((prev) =>
+                        selected
+                          ? prev.filter((x) => x !== c.id)
+                          : [...prev, c.id],
+                      )
+                    }
+                  >
+                    <div
+                      className={`h-3.5 w-3.5 rounded border flex-shrink-0 ${
+                        selected
+                          ? "bg-primary border-primary"
+                          : "border-muted-foreground"
+                      }`}
+                    />
+                    <span className="font-medium">{c.fullName}</span>
+                    <span className="text-muted-foreground text-xs ml-auto">{c.email}</span>
+                  </button>
+                );
+              })}
+            {(contacts?.data ?? []).filter((c) => !enrolledContactIds.has(c.id)).length ===
+              0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Tất cả contacts đã được enroll vào chiến dịch này.
+              </p>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">Đã chọn: {selectedContactIds.length} ứng viên</p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEnrollOpen(false)}>Hủy</Button>
+            <Button variant="outline" onClick={() => setEnrollOpen(false)}>
+              Hủy
+            </Button>
             <Button
               disabled={selectedContactIds.length === 0 || enrollMutation.isPending}
               onClick={() => enrollMutation.mutate()}
             >
-              {enrollMutation.isPending ? "Đang enroll..." : `Enroll ${selectedContactIds.length} contacts`}
+              {enrollMutation.isPending
+                ? "Đang thêm..."
+                : `Thêm ${selectedContactIds.length} ứng viên`}
             </Button>
           </DialogFooter>
         </DialogContent>
