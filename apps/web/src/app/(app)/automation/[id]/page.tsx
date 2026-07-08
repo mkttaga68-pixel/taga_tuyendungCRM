@@ -38,6 +38,7 @@ export default function AutomationDetailPage({ params }: { params: Promise<{ id:
   const candidatesTableName = uiSettingsQuery.data?.candidatesTableName ?? "Ứng viên";
   const [selectedTableKey, setSelectedTableKey] = useState<string | null>(null);
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
+  const [localApplyMode, setLocalApplyMode] = useState<"table" | "list" | null>(null);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState("");
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -111,6 +112,9 @@ export default function AutomationDetailPage({ params }: { params: Promise<{ id:
   const showTableConfig = TABLE_TRIGGER_TYPES.has(workflow.triggerType);
   const activeTableKey = selectedTableKey ?? triggerTableKey;
   const activeListId = selectedListId ?? triggerListId;
+  // applyMode: derive from saved config, override with local selection
+  const savedApplyMode: "table" | "list" = triggerListId ? "list" : "table";
+  const applyMode = localApplyMode ?? savedApplyMode;
 
   return (
     <div className="h-full overflow-hidden flex flex-col">
@@ -153,14 +157,42 @@ export default function AutomationDetailPage({ params }: { params: Promise<{ id:
           <Badge variant="outline">{AUTOMATION_TRIGGER_TYPE_LABELS[workflow.triggerType]}</Badge>
         </div>
 
-        {/* Cấu hình bảng + danh bạ — hiển thị khi trigger là RECORD_CREATED / FIELD_CHANGED */}
+        {/* Cấu hình áp dụng — hiển thị khi trigger là RECORD_CREATED / FIELD_CHANGED */}
         {showTableConfig && (
-          <div className="space-y-2">
-            {/* Bảng áp dụng */}
-            <div className="flex items-center gap-3 rounded-md border bg-muted/40 px-3 py-2">
-              <Table2 className="size-4 shrink-0 text-muted-foreground" />
-              <div className="flex flex-1 items-center gap-2 flex-wrap">
-                <span className="text-sm font-medium w-32 shrink-0">Bảng áp dụng:</span>
+          <div className="flex items-center gap-3 rounded-md border bg-muted/40 px-3 py-2">
+            {applyMode === "table"
+              ? <Table2 className="size-4 shrink-0 text-muted-foreground" />
+              : <BookUser className="size-4 shrink-0 text-muted-foreground" />}
+            <div className="flex flex-1 items-center gap-2 flex-wrap">
+              <span className="text-sm font-medium shrink-0">Áp dụng theo:</span>
+              {/* Toggle Bảng / Danh bạ */}
+              <div className="flex rounded-md border overflow-hidden text-sm shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (applyMode === "table") return;
+                    setLocalApplyMode("table");
+                    setSelectedListId(null);
+                    updateListMutation.mutate(null);
+                  }}
+                  className={`px-3 py-1 transition-colors ${applyMode === "table" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                >
+                  Bảng
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (applyMode === "list") return;
+                    setLocalApplyMode("list");
+                    setSelectedTableKey(null);
+                  }}
+                  className={`px-3 py-1 transition-colors border-l ${applyMode === "list" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                >
+                  Danh bạ
+                </button>
+              </div>
+              {/* Selector tương ứng */}
+              {applyMode === "table" ? (
                 <Select
                   value={activeTableKey}
                   onValueChange={(v) => {
@@ -174,26 +206,11 @@ export default function AutomationDetailPage({ params }: { params: Promise<{ id:
                   <SelectContent>
                     <SelectItem value="candidates">{candidatesTableName} (mặc định)</SelectItem>
                     {tables.map((t) => (
-                      <SelectItem key={t.tableKey} value={t.tableKey}>
-                        {t.name}
-                      </SelectItem>
+                      <SelectItem key={t.tableKey} value={t.tableKey}>{t.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <span className="text-xs text-muted-foreground">
-                  Automation chạy khi có thay đổi trong bảng <strong>{triggerTableLabel}</strong>
-                </span>
-              </div>
-              {updateTriggerMutation.isPending && (
-                <span className="text-xs text-muted-foreground">Đang lưu...</span>
-              )}
-            </div>
-
-            {/* Danh bạ áp dụng */}
-            <div className="flex items-center gap-3 rounded-md border bg-muted/40 px-3 py-2">
-              <BookUser className="size-4 shrink-0 text-muted-foreground" />
-              <div className="flex flex-1 items-center gap-2 flex-wrap">
-                <span className="text-sm font-medium w-32 shrink-0">Danh bạ áp dụng:</span>
+              ) : (
                 <Select
                   value={activeListId ?? "__none__"}
                   onValueChange={(v) => {
@@ -203,27 +220,28 @@ export default function AutomationDetailPage({ params }: { params: Promise<{ id:
                   }}
                 >
                   <SelectTrigger className="h-7 w-52 text-sm">
-                    <SelectValue placeholder="Không giới hạn danh bạ" />
+                    <SelectValue placeholder="Chọn danh bạ" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">Không giới hạn</SelectItem>
+                    <SelectItem value="__none__">-- Chọn danh bạ --</SelectItem>
                     {contactLists.map((list) => (
-                      <SelectItem key={list.id} value={list.id}>
-                        {list.name}
-                      </SelectItem>
+                      <SelectItem key={list.id} value={list.id}>{list.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <span className="text-xs text-muted-foreground">
-                  {activeListId
-                    ? <>Chỉ áp dụng với liên lạc trong danh bạ <strong>{contactLists.find((l) => l.id === activeListId)?.name ?? "..."}</strong></>
-                    : "Áp dụng với tất cả bản ghi trong bảng"}
-                </span>
-              </div>
-              {updateListMutation.isPending && (
-                <span className="text-xs text-muted-foreground">Đang lưu...</span>
               )}
+              {/* Mô tả */}
+              <span className="text-xs text-muted-foreground">
+                {applyMode === "table"
+                  ? <>Chạy khi có thay đổi trong bảng <strong>{triggerTableLabel}</strong></>
+                  : activeListId
+                    ? <>Chỉ áp dụng với liên lạc trong danh bạ <strong>{contactLists.find((l) => l.id === activeListId)?.name ?? "..."}</strong></>
+                    : "Chọn danh bạ để lọc liên lạc áp dụng"}
+              </span>
             </div>
+            {(updateTriggerMutation.isPending || updateListMutation.isPending) && (
+              <span className="text-xs text-muted-foreground">Đang lưu...</span>
+            )}
           </div>
         )}
       </div>
