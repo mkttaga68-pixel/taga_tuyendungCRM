@@ -124,7 +124,8 @@ export function NodeConfigPanel({ node, users, onChangeConfig, onToggleEntry, on
   }
 
   return (
-    <div className="relative flex w-80 flex-col gap-3 overflow-y-auto border-l p-4">
+    <div className="flex h-full w-80 shrink-0 flex-col border-l">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="font-medium">{AUTOMATION_NODE_TYPE_LABELS[type]}</h3>
         <Button variant="ghost" size="icon" onClick={onDelete}>
@@ -350,29 +351,35 @@ export function NodeConfigPanel({ node, users, onChangeConfig, onToggleEntry, on
       {type === "DELAY" && (
         <>
           <div className="space-y-1">
-            <Label className="text-xs">Số lượng</Label>
-            <Input
-              type="number"
-              value={String(localConfig.amount ?? 1)}
-              onChange={(e) => patch({ amount: Number(e.target.value) })}
-            />
+            <Label className="text-xs">Chờ sau</Label>
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                min={1}
+                className="w-24"
+                value={String(localConfig.amount ?? 1)}
+                onChange={(e) => patch({ amount: Number(e.target.value) })}
+              />
+              <Select
+                value={String(localConfig.unit ?? "minutes")}
+                onValueChange={(v) => patch({ unit: v })}
+              >
+                <SelectTrigger className="flex-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="seconds">Giây</SelectItem>
+                  <SelectItem value="minutes">Phút</SelectItem>
+                  <SelectItem value="hours">Giờ</SelectItem>
+                  <SelectItem value="days">Ngày</SelectItem>
+                  <SelectItem value="weeks">Tuần</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Đơn vị</Label>
-            <Select
-              value={String(localConfig.unit ?? "minutes")}
-              onValueChange={(v) => patch({ unit: v })}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="seconds">Giây</SelectItem>
-                <SelectItem value="minutes">Phút</SelectItem>
-                <SelectItem value="hours">Giờ</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <p className="text-xs text-muted-foreground">
+            Automation sẽ tạm dừng, tiếp tục chạy node tiếp theo sau khoảng thời gian này.
+          </p>
         </>
       )}
 
@@ -623,7 +630,8 @@ export function NodeConfigPanel({ node, users, onChangeConfig, onToggleEntry, on
         <p className="text-xs text-muted-foreground">Node placeholder — không cần cấu hình.</p>
       )}
 
-      <div className="sticky bottom-0 -mx-4 border-t bg-background px-4 pb-4 pt-3">
+      </div>
+      <div className="shrink-0 border-t bg-background px-4 pb-4 pt-3">
         <Button
           type="button"
           size="sm"

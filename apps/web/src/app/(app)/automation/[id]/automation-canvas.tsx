@@ -225,7 +225,7 @@ function AutomationCanvasInner({
   }, []);
 
   return (
-    <div className="flex h-[calc(100vh-220px)] min-h-100">
+    <div className="flex h-full min-h-0">
       <div className="w-44 shrink-0 overflow-y-auto border-r p-2">
         {Object.entries(grouped).map(([category, types]) => (
           <div key={category} className="mb-3">

@@ -1,10 +1,12 @@
 import { delayConfigSchema, waitConfigSchema } from "@taga-crm/shared";
 import type { NodeExecutor } from "../types";
 
-const UNIT_TO_MS: Record<"seconds" | "minutes" | "hours", number> = {
+const UNIT_TO_MS: Record<"seconds" | "minutes" | "hours" | "days" | "weeks", number> = {
   seconds: 1000,
   minutes: 60_000,
   hours: 3_600_000,
+  days: 86_400_000,
+  weeks: 604_800_000,
 };
 
 export const delayExecutor: NodeExecutor = async ({ node }) => {

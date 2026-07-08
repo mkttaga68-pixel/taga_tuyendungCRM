@@ -27,7 +27,7 @@ export type SwitchConfig = z.infer<typeof switchConfigSchema>;
 
 export const delayConfigSchema = z.object({
   amount: z.number().int().positive(),
-  unit: z.enum(["seconds", "minutes", "hours"]),
+  unit: z.enum(["seconds", "minutes", "hours", "days", "weeks"]),
 });
 export type DelayConfig = z.infer<typeof delayConfigSchema>;
 
