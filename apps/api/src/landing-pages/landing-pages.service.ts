@@ -21,11 +21,21 @@ import { generateOpaqueToken, sha256Hex } from "../common/utils/hash.util";
 const LANDING_PAGE_INCLUDE = {
   creator: { select: { id: true, fullName: true } },
   _count: { select: { submissions: true, candidates: true } },
+  mktConfig: {
+    select: {
+      defaultListId: true,
+      defaultList: { select: { id: true, name: true } },
+    },
+  },
 } satisfies Prisma.LandingPageInclude;
 
 type LandingPageWithRelations = LandingPage & {
   creator: { id: string; fullName: string } | null;
   _count: { submissions: number; candidates: number };
+  mktConfig: {
+    defaultListId: string | null;
+    defaultList: { id: string; name: string } | null;
+  } | null;
 };
 
 @Injectable()
@@ -193,6 +203,8 @@ export class LandingPagesService {
       creator: row.creator,
       submissionCount: row._count.submissions,
       candidateCount: row._count.candidates,
+      defaultListId: row.mktConfig?.defaultListId ?? null,
+      defaultListName: row.mktConfig?.defaultList?.name ?? null,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   updateLandingPageSchema,
@@ -31,6 +31,11 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { regenerateApiKey, updateLandingPage } from "@/lib/landing-pages-api";
+import {
+  listMktContactLists,
+  getMktLandingPageConfig,
+  upsertMktLandingPageConfig,
+} from "@/lib/mkt-api";
 import { useAuthStore } from "@/stores/auth-store";
 import { ApiError } from "@/lib/api-client";
 
@@ -72,6 +77,32 @@ export function InfoTab({ landingPage }: { landingPage: LandingPageDto }) {
     onError: (error) => {
       toast.error(error instanceof ApiError ? error.message : "Không thể tạo lại API key");
     },
+  });
+
+  const listsQuery = useQuery({
+    queryKey: ["mkt-contact-lists"],
+    queryFn: listMktContactLists,
+  });
+
+  const configQuery = useQuery({
+    queryKey: ["mkt-landing-page-config", landingPage.id],
+    queryFn: () => getMktLandingPageConfig(landingPage.id),
+  });
+
+  const configMutation = useMutation({
+    mutationFn: (listId: string | null) =>
+      upsertMktLandingPageConfig(landingPage.id, {
+        defaultListId: listId ?? undefined,
+        defaultCampaignId: configQuery.data?.defaultCampaignId ?? undefined,
+        defaultTagIds: configQuery.data?.defaultTagIds ?? [],
+        sourceLabel: configQuery.data?.sourceLabel ?? undefined,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["mkt-landing-page-config", landingPage.id] });
+      queryClient.invalidateQueries({ queryKey: ["landing-pages"] });
+      toast.success("Đã lưu danh bạ");
+    },
+    onError: () => toast.error("Không thể lưu danh bạ"),
   });
 
   return (
@@ -128,6 +159,52 @@ export function InfoTab({ landingPage }: { landingPage: LandingPageDto }) {
               </Button>
             )}
           </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Danh bạ Marketing</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Khi ứng viên có email nộp form qua landing page này, hệ thống tự động thêm vào danh bạ
+            được chọn để chạy chiến dịch email marketing.
+          </p>
+          <div className="space-y-2">
+            <Label>Gán vào danh bạ</Label>
+            <Select
+              disabled={!canManage || configMutation.isPending || listsQuery.isLoading}
+              value={configQuery.data?.defaultListId ?? "__none__"}
+              onValueChange={(v) => configMutation.mutate(v === "__none__" ? null : v)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Chọn danh bạ..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Không gán</SelectItem>
+                {(listsQuery.data ?? []).map((list) => (
+                  <SelectItem key={list.id} value={list.id}>
+                    {list.name}
+                    {list.memberCount > 0 && (
+                      <span className="ml-1 text-xs text-muted-foreground">
+                        ({list.memberCount})
+                      </span>
+                    )}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {listsQuery.data?.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              Chưa có danh bạ nào. Vào{" "}
+              <a href="/marketing/contacts" className="underline">
+                Marketing Hub → Danh bạ
+              </a>{" "}
+              để tạo danh bạ đầu tiên.
+            </p>
+          )}
         </CardContent>
       </Card>
 

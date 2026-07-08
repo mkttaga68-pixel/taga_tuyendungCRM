@@ -117,7 +117,7 @@ export class IngestionService {
     if (result.candidateId && (result.status === "PROCESSED" || result.status === "DUPLICATE")) {
       const candidate = await this.prisma.candidate.findUnique({
         where: { id: result.candidateId },
-        select: { email: true, phone: true },
+        select: { fullName: true, email: true, phone: true },
       });
       await this.facebookCapiService.sendLeadEvent({
         email: candidate?.email ?? null,
@@ -127,6 +127,38 @@ export class IngestionService {
         userAgent: payload.userAgent,
         pageUrl: payload.pageUrl,
       });
+
+      if (result.status === "PROCESSED" && candidate?.email) {
+        const mktConfig = await this.prisma.mktLandingPageConfig.findUnique({
+          where: { landingPageId: landingPage.id },
+        });
+        if (mktConfig?.defaultListId) {
+          try {
+            const contact = await this.prisma.mktContact.upsert({
+              where: { email: candidate.email },
+              create: {
+                fullName: candidate.fullName,
+                email: candidate.email,
+                phone: candidate.phone ?? null,
+                candidateId: result.candidateId,
+                source: "landing_page",
+              },
+              update: { candidateId: result.candidateId },
+            });
+            await this.prisma.mktContactListMember.upsert({
+              where: {
+                contactId_listId: { contactId: contact.id, listId: mktConfig.defaultListId },
+              },
+              create: { contactId: contact.id, listId: mktConfig.defaultListId },
+              update: {},
+            });
+          } catch (err) {
+            this.logger.warn(
+              `Thêm vào danh bạ thất bại cho candidate ${result.candidateId}: ${err instanceof Error ? err.message : err}`,
+            );
+          }
+        }
+      }
     }
 
     return { kind: "accepted" };

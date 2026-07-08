@@ -41,6 +41,8 @@ export interface LandingPageDto {
   creator: { id: string; fullName: string } | null;
   submissionCount: number;
   candidateCount: number;
+  defaultListId: string | null;
+  defaultListName: string | null;
   createdAt: string;
   updatedAt: string;
 }

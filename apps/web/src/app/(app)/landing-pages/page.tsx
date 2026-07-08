@@ -228,6 +228,7 @@ export default function LandingPagesPage() {
               <TableHead>Tên</TableHead>
               <TableHead>Slug</TableHead>
               <TableHead>Trạng thái</TableHead>
+              <TableHead>Danh bạ</TableHead>
               <TableHead className="text-right">Submissions</TableHead>
               <TableHead className="text-right">Ứng viên</TableHead>
               <TableHead>Người tạo</TableHead>
@@ -248,6 +249,9 @@ export default function LandingPagesPage() {
                     {LANDING_PAGE_STATUS_LABELS[lp.status]}
                   </Badge>
                 </TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {lp.defaultListName ?? "—"}
+                </TableCell>
                 <TableCell className="text-right">{lp.submissionCount}</TableCell>
                 <TableCell className="text-right">{lp.candidateCount}</TableCell>
                 <TableCell className="text-muted-foreground">{lp.creator?.fullName ?? "—"}</TableCell>
@@ -267,7 +271,7 @@ export default function LandingPagesPage() {
             ))}
             {query.data?.length === 0 && (
               <TableRow>
-                <TableCell colSpan={canManage ? 7 : 6} className="py-8 text-center text-muted-foreground">
+                <TableCell colSpan={canManage ? 8 : 7} className="py-8 text-center text-muted-foreground">
                   Chưa có Landing Page nào.
                 </TableCell>
               </TableRow>
