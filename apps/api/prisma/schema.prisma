@@ -932,17 +932,18 @@ model MktLandingPageConfig {
 }
 
 model MktCampaign {
-  id          String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name        String
-  description String?
-  status      MktCampaignStatus @default(DRAFT)
-  fromName    String            @map("from_name")
-  fromEmail   String            @map("from_email")
-  replyTo     String?           @map("reply_to")
-  createdBy   String?           @map("created_by") @db.Uuid
-  createdAt   DateTime          @default(now()) @map("created_at")
-  updatedAt   DateTime          @updatedAt @map("updated_at")
-  deletedAt   DateTime?         @map("deleted_at")
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name             String
+  description      String?
+  status           MktCampaignStatus @default(DRAFT)
+  fromName         String            @map("from_name")
+  fromEmail        String            @map("from_email")
+  replyTo          String?           @map("reply_to")
+  opportunitySteps Json              @default("[]") @map("opportunity_steps") @db.JsonB
+  createdBy        String?           @map("created_by") @db.Uuid
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  deletedAt        DateTime?         @map("deleted_at")
 
   creator       User?                   @relation("MktCampaignCreator", fields: [createdBy], references: [id])
   emails        MktCampaignEmail[]

@@ -54,6 +54,7 @@ export interface MktCampaignDto {
   fromName: string;
   fromEmail: string;
   replyTo: string | null;
+  opportunitySteps: string[];
   createdBy: string | null;
   createdAt: string;
   updatedAt: string;
@@ -74,6 +75,7 @@ export const createMktCampaignSchema = z.object({
   fromName: z.string().min(1),
   fromEmail: z.string().email(),
   replyTo: z.string().email().optional(),
+  opportunitySteps: z.array(z.string().min(1)).optional().default([]),
 });
 export type CreateMktCampaignInput = z.infer<typeof createMktCampaignSchema>;
 

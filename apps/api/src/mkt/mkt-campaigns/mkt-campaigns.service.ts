@@ -23,6 +23,7 @@ type CampaignRow = {
   fromName: string;
   fromEmail: string;
   replyTo: string | null;
+  opportunitySteps: unknown;
   createdBy: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -38,6 +39,7 @@ function campaignToDto(r: CampaignRow): MktCampaignDto {
     fromName: r.fromName,
     fromEmail: r.fromEmail,
     replyTo: r.replyTo,
+    opportunitySteps: Array.isArray(r.opportunitySteps) ? (r.opportunitySteps as string[]) : [],
     createdBy: r.createdBy,
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),

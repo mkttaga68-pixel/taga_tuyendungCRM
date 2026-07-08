@@ -7,33 +7,17 @@ import { Plus, Trash2, Pencil, Check, ChevronLeft } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   createMktCampaign,
-  addMktCampaignEmail,
   listMktContactLists,
 } from "@/lib/mkt-api";
-import type { MktDelayUnit } from "@taga-crm/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-
-type EmailDraft = {
-  subject: string;
-  description: string;
-  delayValue: number;
-  delayUnit: MktDelayUnit;
-};
 
 type WizardState = {
   // Step 1
@@ -47,7 +31,7 @@ type WizardState = {
   sendTo: string;
   sendDays: number[];
   // Step 3
-  emails: EmailDraft[];
+  stages: string[];
   // Step 4 – informational, no API effect during wizard
   selectedListIds: string[];
 };
@@ -61,13 +45,6 @@ const DAYS = [
   { value: 6, label: "T7" },
   { value: 0, label: "CN" },
 ];
-
-const DELAY_UNIT_LABELS: Record<MktDelayUnit, string> = {
-  MINUTES: "phút",
-  HOURS: "giờ",
-  DAYS: "ngày",
-  WEEKS: "tuần",
-};
 
 const STEPS = [
   { id: 1, label: "Thông tin chiến dịch" },
@@ -210,7 +187,7 @@ function Step2({
               placeholder="reply@taga.vn"
             />
             <p className="text-xs text-muted-foreground">
-              Địa chỉ nhận phản hồi khi ứng viên bấm "Trả lời". Để trống = dùng email gửi.
+              Địa chỉ nhận phản hồi khi ứng viên bấm &quot;Trả lời&quot;. Để trống = dùng email gửi.
             </p>
           </div>
         </div>
@@ -284,7 +261,7 @@ function Step2({
   );
 }
 
-// ─── Step 3: Email Sequence ───────────────────────────────────────────────────
+// ─── Step 3: Opportunity Processing Steps ────────────────────────────────────
 
 function Step3({
   state,
@@ -294,179 +271,117 @@ function Step3({
   onChange: (patch: Partial<WizardState>) => void;
 }) {
   const [adding, setAdding] = useState(false);
-  const [newSubject, setNewSubject] = useState("");
-  const [newDelay, setNewDelay] = useState(1);
-  const [newUnit, setNewUnit] = useState<MktDelayUnit>("DAYS");
+  const [newName, setNewName] = useState("");
   const [editIdx, setEditIdx] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
 
-  const addEmail = () => {
-    if (!newSubject.trim()) return;
-    onChange({
-      emails: [
-        ...state.emails,
-        { subject: newSubject.trim(), description: "", delayValue: newDelay, delayUnit: newUnit },
-      ],
-    });
-    setNewSubject("");
-    setNewDelay(1);
-    setNewUnit("DAYS");
+  const addStage = () => {
+    if (!newName.trim()) return;
+    onChange({ stages: [...state.stages, newName.trim()] });
+    setNewName("");
     setAdding(false);
   };
 
-  const removeEmail = (idx: number) => {
-    onChange({ emails: state.emails.filter((_, i) => i !== idx) });
+  const removeStage = (idx: number) => {
+    onChange({ stages: state.stages.filter((_, i) => i !== idx) });
     if (editIdx === idx) setEditIdx(null);
   };
 
-  const updateEmail = (idx: number, patch: Partial<EmailDraft>) => {
+  const startEdit = (idx: number) => {
+    setEditIdx(idx);
+    setEditName(state.stages[idx] ?? "");
+  };
+
+  const saveEdit = () => {
+    if (editIdx === null || !editName.trim()) return;
     onChange({
-      emails: state.emails.map((e, i) => (i === idx ? { ...e, ...patch } : e)),
+      stages: state.stages.map((s, i) => (i === editIdx ? editName.trim() : s)),
     });
+    setEditIdx(null);
+    setEditName("");
   };
 
   return (
     <div className="flex gap-8">
       <div className="flex-1 space-y-3">
-        <h2 className="text-base font-semibold">Chuỗi email tự động</h2>
+        <h2 className="text-base font-semibold">Các bước xử lý cơ hội</h2>
         <p className="text-sm text-muted-foreground">
-          Thêm các email sẽ được gửi tuần tự đến ứng viên. Nội dung chi tiết có thể chỉnh sửa sau khi tạo chiến dịch.
+          Định nghĩa các bước trong quy trình xử lý cơ hội tuyển dụng của chiến dịch này.
         </p>
 
-        {/* Email step list */}
         <div className="space-y-2 mt-2">
-          {state.emails.map((email, idx) => (
+          {state.stages.map((stage, idx) => (
             <div key={idx}>
-              <div
-                className="flex items-center gap-3 rounded-md px-4 py-3 text-white text-sm"
-                style={{ background: "#1e3a6e" }}
-              >
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/40 text-xs font-bold">
-                  {idx + 1}
-                </span>
-                <span className="flex-1 font-medium truncate">{email.subject}</span>
-                {idx > 0 && (
-                  <span className="text-xs text-white/70 shrink-0">
-                    +{email.delayValue} {DELAY_UNIT_LABELS[email.delayUnit]} sau
+              {editIdx === idx ? (
+                <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-4 py-2">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border text-xs font-bold text-muted-foreground">
+                    {idx + 1}
                   </span>
-                )}
-                {idx === 0 && (
-                  <span className="text-xs text-white/70 shrink-0">Gửi ngay khi đăng ký</span>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setEditIdx(editIdx === idx ? null : idx)}
-                  className="ml-1 p-1 rounded hover:bg-white/10"
+                  <Input
+                    autoFocus
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="h-7 text-sm flex-1"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") { e.preventDefault(); saveEdit(); }
+                      if (e.key === "Escape") { setEditIdx(null); setEditName(""); }
+                    }}
+                  />
+                  <Button size="sm" variant="ghost" className="h-7 px-2" onClick={saveEdit}>
+                    <Check className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ) : (
+                <div
+                  className="flex items-center gap-3 rounded-md px-4 py-3 text-white text-sm"
+                  style={{ background: "#1e3a6e" }}
                 >
-                  <Pencil className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => removeEmail(idx)}
-                  className="p-1 rounded hover:bg-white/10"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-
-              {/* Inline edit for delay */}
-              {editIdx === idx && (
-                <div className="ml-9 mt-1 rounded-md border bg-muted/40 p-3 space-y-2">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Tiêu đề email</Label>
-                    <Input
-                      value={email.subject}
-                      onChange={(e) => updateEmail(idx, { subject: e.target.value })}
-                      className="h-8 text-sm"
-                    />
-                  </div>
-                  {idx > 0 && (
-                    <div className="flex items-center gap-2">
-                      <Label className="text-xs shrink-0">Gửi sau</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={email.delayValue}
-                        onChange={(e) => updateEmail(idx, { delayValue: Number(e.target.value) })}
-                        className="h-8 w-20 text-sm"
-                      />
-                      <Select
-                        value={email.delayUnit}
-                        onValueChange={(v) => updateEmail(idx, { delayUnit: v as MktDelayUnit })}
-                      >
-                        <SelectTrigger className="h-8 w-28 text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(Object.entries(DELAY_UNIT_LABELS) as [MktDelayUnit, string][]).map(([k, v]) => (
-                            <SelectItem key={k} value={k}>{v}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <span className="text-xs text-muted-foreground">kể từ email trước</span>
-                    </div>
-                  )}
-                  <div className="space-y-1">
-                    <Label className="text-xs">Ghi chú nội dung (tùy chọn)</Label>
-                    <Textarea
-                      value={email.description}
-                      onChange={(e) => updateEmail(idx, { description: e.target.value })}
-                      placeholder="Mô tả ngắn nội dung email này..."
-                      rows={2}
-                      className="text-sm"
-                    />
-                  </div>
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/40 text-xs font-bold">
+                    {idx + 1}
+                  </span>
+                  <span className="flex-1 font-medium">{stage}</span>
+                  <button
+                    type="button"
+                    onClick={() => startEdit(idx)}
+                    className="p-1 rounded hover:bg-white/10"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeStage(idx)}
+                    className="p-1 rounded hover:bg-white/10"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               )}
             </div>
           ))}
         </div>
 
-        {/* Add step row */}
         {adding ? (
           <div className="rounded-md border bg-muted/40 p-3 space-y-3">
             <div className="space-y-1">
               <Label className="text-xs">
-                Tiêu đề email <span className="text-destructive">*</span>
+                Tên bước <span className="text-destructive">*</span>
               </Label>
               <Input
                 autoFocus
-                value={newSubject}
-                onChange={(e) => setNewSubject(e.target.value)}
-                placeholder="VD: Chào mừng bạn đến với Taga Group"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="VD: Tiếp cận ứng viên"
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") { e.preventDefault(); addEmail(); }
-                  if (e.key === "Escape") { setAdding(false); setNewSubject(""); }
+                  if (e.key === "Enter") { e.preventDefault(); addStage(); }
+                  if (e.key === "Escape") { setAdding(false); setNewName(""); }
                 }}
               />
             </div>
-            {state.emails.length > 0 && (
-              <div className="flex items-center gap-2">
-                <Label className="text-xs shrink-0">Gửi sau</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={newDelay}
-                  onChange={(e) => setNewDelay(Number(e.target.value))}
-                  className="h-8 w-20 text-sm"
-                />
-                <Select value={newUnit} onValueChange={(v) => setNewUnit(v as MktDelayUnit)}>
-                  <SelectTrigger className="h-8 w-28 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(Object.entries(DELAY_UNIT_LABELS) as [MktDelayUnit, string][]).map(([k, v]) => (
-                      <SelectItem key={k} value={k}>{v}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <span className="text-xs text-muted-foreground">kể từ email trước</span>
-              </div>
-            )}
             <div className="flex gap-2">
-              <Button size="sm" onClick={addEmail} disabled={!newSubject.trim()}>
+              <Button size="sm" onClick={addStage} disabled={!newName.trim()}>
                 Thêm
               </Button>
-              <Button size="sm" variant="outline" onClick={() => { setAdding(false); setNewSubject(""); }}>
+              <Button size="sm" variant="outline" onClick={() => { setAdding(false); setNewName(""); }}>
                 Hủy
               </Button>
             </div>
@@ -481,27 +396,23 @@ function Step3({
             Thêm bước
           </button>
         )}
-
-        {state.emails.length === 0 && !adding && (
-          <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 rounded px-3 py-2 border border-amber-200 dark:border-amber-800">
-            Cần ít nhất 1 email để có thể kích hoạt chiến dịch. Bạn có thể thêm email sau khi tạo.
-          </p>
-        )}
       </div>
 
       <aside className="w-80 shrink-0 rounded-lg border bg-muted/40 p-5 text-sm leading-relaxed text-muted-foreground space-y-2">
         <p className="font-semibold text-foreground">Chú thích</p>
         <p>
-          Mỗi bước là một email được gửi vào thời điểm đã cài đặt. Email đầu tiên gửi ngay khi ứng viên đăng ký vào chiến dịch.
+          Mỗi bước là một giai đoạn trong quy trình xử lý cơ hội tuyển dụng. Định nghĩa các bước giúp team theo dõi tiến trình từng cơ hội.
         </p>
         <p>Ví dụ:</p>
         <ul className="list-disc pl-4 space-y-0.5">
-          <li>Bước 1 – Gửi ngay: Xác nhận nhận hồ sơ</li>
-          <li>Bước 2 – Sau 2 ngày: Giới thiệu văn hóa công ty</li>
-          <li>Bước 3 – Sau 3 ngày: Mời phỏng vấn</li>
+          <li>Bước 1 – Tiếp nhận thông tin ứng viên</li>
+          <li>Bước 2 – Liên hệ &amp; sàng lọc hồ sơ</li>
+          <li>Bước 3 – Phỏng vấn vòng 1</li>
+          <li>Bước 4 – Phỏng vấn vòng 2 &amp; chốt offer</li>
         </ul>
         <p className="mt-1 text-xs">
-          Nội dung chi tiết của từng email có thể soạn trong trang chi tiết chiến dịch sau khi tạo.
+          Cài đặt email tự động và thời điểm gửi được cấu hình trong phần{" "}
+          <strong className="text-foreground">Automation</strong>.
         </p>
       </aside>
     </div>
@@ -544,7 +455,6 @@ function Step4({
         )}
       </div>
 
-      {/* Contact list selector */}
       <div className="rounded-md border overflow-hidden">
         <div className="grid grid-cols-3 gap-0 bg-muted/60 px-4 py-2 text-xs font-medium text-muted-foreground border-b">
           <span>Danh bạ</span>
@@ -608,19 +518,12 @@ const INITIAL_STATE: WizardState = {
   sendFrom: "08:00",
   sendTo: "20:00",
   sendDays: [1, 2, 3, 4, 5],
-  emails: [],
+  stages: [],
   selectedListIds: [],
 };
 
 function isValidEmail(v: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-}
-
-function descToHtml(text: string, subject: string): string {
-  const body = text.trim()
-    ? text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")
-    : `<em style="color:#888">[Nội dung email "${subject}" — soạn trong trang chi tiết chiến dịch]</em>`;
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="font-family:Arial,sans-serif;font-size:14px;line-height:1.7;padding:24px;max-width:600px;margin:0 auto;">${body}</body></html>`;
 }
 
 export default function NewCampaignPage() {
@@ -662,35 +565,15 @@ export default function NewCampaignPage() {
   // ── Submission ──────────────────────────────────────────────────────────────
 
   const createMutation = useMutation({
-    mutationFn: async () => {
-      const campaign = await createMktCampaign({
+    mutationFn: () =>
+      createMktCampaign({
         name: state.name.trim(),
         description: state.description.trim() || undefined,
         fromName: state.fromName.trim(),
         fromEmail: state.fromEmail.trim(),
         replyTo: state.replyTo.trim() || undefined,
-      });
-
-      const sendWindow = {
-        from: state.sendFrom,
-        to: state.sendTo,
-        days: state.sendDays,
-        tz: "Asia/Ho_Chi_Minh",
-      };
-
-      for (const email of state.emails) {
-        await addMktCampaignEmail(campaign.id, {
-          subject: email.subject,
-          bodyHtml: descToHtml(email.description, email.subject),
-          delayValue: email.delayValue,
-          delayUnit: email.delayUnit,
-          sendWindow,
-          condition: {},
-        });
-      }
-
-      return campaign;
-    },
+        opportunitySteps: state.stages,
+      }),
     onSuccess: (campaign) => {
       toast.success("Chiến dịch đã được tạo thành công");
       router.push(`/marketing/campaigns/${campaign.id}`);
@@ -729,7 +612,6 @@ export default function NewCampaignPage() {
         {step === 3 && <Step3 state={state} onChange={patch} />}
         {step === 4 && <Step4 state={state} onChange={patch} />}
 
-        {/* Inline field errors */}
         {Object.keys(errors).length > 0 && (
           <div className="mt-4 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive space-y-1">
             {Object.values(errors).map((msg, i) => (
