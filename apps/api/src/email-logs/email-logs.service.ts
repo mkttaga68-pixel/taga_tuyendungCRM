@@ -215,36 +215,44 @@ export class EmailLogsService {
 
   /** Nhận email inbound từ Resend webhook — lưu vào EmailLog với direction=INBOUND. */
   async receiveInbound(payload: unknown): Promise<{ received: true }> {
-    // Log toàn bộ payload để debug cấu trúc Resend gửi về
-    console.log("[inbound] raw payload keys:", Object.keys(payload as object));
-    console.log("[inbound] full payload:", JSON.stringify(payload, null, 2).slice(0, 3000));
+    const data = payload as Record<string, unknown>;
 
-    const data = payload as {
-      type?: string;
-      data?: Record<string, unknown>;
-    };
+    // Resend gửi type = "email.inbound.received" (có wrapper type+data)
+    // Fallback: payload trực tiếp không có wrapper (from/subject ở root)
+    const INBOUND_TYPES = new Set([
+      "email.inbound",
+      "email.inbound.received",
+      "email.received",
+    ]);
 
-    if ((data?.type !== "email.inbound" && data?.type !== "email.received") || !data.data) {
-      console.log("[inbound] skipped — type:", data?.type, "has data:", !!data?.data);
+    let inbound: Record<string, unknown>;
+
+    const hasWrapper =
+      typeof data?.type === "string" &&
+      INBOUND_TYPES.has(data.type) &&
+      data.data != null &&
+      typeof data.data === "object";
+
+    if (hasWrapper) {
+      inbound = data.data as Record<string, unknown>;
+    } else if (data?.from || data?.subject) {
+      // Payload gửi thẳng không có wrapper type/data
+      inbound = data;
+    } else {
+      // Không phải inbound email — bỏ qua
       return { received: true };
     }
 
-    const inbound = data.data;
-    console.log("[inbound] data keys:", Object.keys(inbound));
-
-    const fromEmail = (inbound.from as string | undefined) ?? "unknown";
-    const toRaw = inbound.to;
-    const toEmail = Array.isArray(toRaw) ? ((toRaw[0] as string) ?? "") : ((toRaw as string | undefined) ?? "");
-    const subject = (inbound.subject as string | undefined) ?? "(không có tiêu đề)";
-
-    // Log từng field để debug — ?? không lọc được chuỗi rỗng
-    console.log("[inbound] html:", JSON.stringify(inbound.html)?.slice(0, 200));
-    console.log("[inbound] text:", JSON.stringify(inbound.text)?.slice(0, 200));
-    console.log("[inbound] all keys+types:", Object.entries(inbound).map(([k, v]) => `${k}:${typeof v}(${typeof v === "string" ? v.length : "-"})`).join(", "));
-
-    // Dùng || thay vì ?? để bỏ qua cả chuỗi rỗng ""
     const nonEmpty = (v: unknown): string | undefined =>
       typeof v === "string" && v.trim().length > 0 ? v : undefined;
+
+    const fromRaw = (inbound.from as string | undefined) ?? "unknown";
+    const toRaw = inbound.to;
+    const toEmail = Array.isArray(toRaw)
+      ? ((toRaw[0] as string) ?? "")
+      : ((toRaw as string | undefined) ?? "");
+    const subject =
+      (inbound.subject as string | undefined) ?? "(không có tiêu đề)";
 
     const htmlRaw =
       nonEmpty(inbound.html) ??
@@ -263,20 +271,18 @@ export class EmailLogsService {
       (inbound.messageId as string | undefined) ??
       (inbound.email_id as string | undefined);
 
-    console.log("[inbound] htmlRaw length:", htmlRaw?.length ?? 0, "textRaw length:", textRaw?.length ?? 0);
-
     const bodyHtml = htmlRaw
       ? htmlRaw
       : textRaw
         ? `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="font-family:Arial,sans-serif;font-size:14px;line-height:1.7;padding:24px;"><pre style="white-space:pre-wrap;word-break:break-word;">${textRaw.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre></body></html>`
-        : `<p style="color:#888;font-style:italic;">(Không có nội dung)</p>`;
+        : `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="font-family:Arial,sans-serif;padding:24px;"><p style="color:#888;font-style:italic;">(Không có nội dung)</p></body></html>`;
 
-    // Thử match candidate theo fromEmail (strip display name nếu có "Name <email>")
-    const emailMatch = fromEmail.match(/<([^>]+)>/);
-    const normalizedFrom = emailMatch ? emailMatch[1] : fromEmail;
+    // Strip display name "Tên <email@domain>" → "email@domain"
+    const emailAddrMatch = fromRaw.match(/<([^>]+)>/);
+    const normalizedFrom = (emailAddrMatch?.[1] ?? fromRaw).trim();
 
     const candidate = await this.prisma.candidate.findFirst({
-      where: { email: normalizedFrom, deletedAt: null },
+      where: { email: { equals: normalizedFrom, mode: "insensitive" }, deletedAt: null },
       select: { id: true },
     });
 

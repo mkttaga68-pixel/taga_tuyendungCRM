@@ -201,13 +201,32 @@ export default function InboxPage() {
                   </div>
                 )}
               </div>
-              <div className="border rounded-md overflow-hidden max-h-[60vh] overflow-y-auto">
-                <iframe
-                  srcDoc={preview.bodyHtml}
-                  className="w-full min-h-[300px]"
-                  title="Nội dung email"
-                  sandbox="allow-same-origin"
-                />
+              <div className="border rounded-md overflow-hidden">
+                {preview.bodyHtml ? (
+                  <iframe
+                    srcDoc={preview.bodyHtml}
+                    className="w-full"
+                    style={{ height: "400px", border: "none" }}
+                    title="Nội dung email"
+                    sandbox="allow-same-origin"
+                    onLoad={(e) => {
+                      try {
+                        const iframe = e.currentTarget;
+                        const doc = iframe.contentDocument;
+                        if (doc) {
+                          const h = doc.documentElement.scrollHeight;
+                          iframe.style.height = `${Math.min(Math.max(h, 200), 600)}px`;
+                        }
+                      } catch {
+                        // cross-origin — keep default height
+                      }
+                    }}
+                  />
+                ) : (
+                  <p className="p-6 text-sm text-muted-foreground italic">
+                    (Không có nội dung)
+                  </p>
+                )}
               </div>
               <div className="flex justify-end">
                 <Button asChild size="sm">
